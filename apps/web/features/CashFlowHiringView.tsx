@@ -131,6 +131,17 @@ export const CashFlowHiringView: React.FC<CashFlowHiringViewProps> = ({
 
       {/* Headcount Roster Table */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+        {/* Executive Justification Banner */}
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3.5 text-xs text-slate-700 space-y-1">
+          <div className="flex items-center gap-2 font-bold text-slate-900">
+            <Users className="h-4 w-4 text-emerald-600" />
+            <span>Executive Operating Model Consolidation</span>
+          </div>
+          <p className="leading-relaxed text-slate-600">
+            Forward payroll projections dynamically model your active organizational team as a consolidated unit. Individual departmental ledger lines and discrete headcount schedules are synthesized into verified baseline burn, preserving executive focus on cash runway, break-even timing, and capital efficiency without introducing speculative micro-assumptions.
+          </p>
+        </div>
+
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-800">Headcount & Planned Hiring Events</h3>
@@ -237,6 +248,17 @@ export const CashFlowHiringView: React.FC<CashFlowHiringViewProps> = ({
 
       {/* Financing Events Schedule */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+        {/* Treasury Invariant Justification Callout */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-700 space-y-1">
+          <div className="flex items-center gap-2 font-bold text-slate-900">
+            <DollarSign className="h-4 w-4 text-emerald-600" />
+            <span>Treasury &amp; Capital Invariant Engine</span>
+          </div>
+          <p className="leading-relaxed text-slate-600">
+            Baseline runway and solvency projections operate strictly on your verified initial liquid treasury ({formatCurrency(inputs.initial_cash_balance, curr)}) and forward customer collections. Speculative external equity funding or venture debt rounds are excluded from baseline solvency until contractually scheduled.
+          </p>
+        </div>
+
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-800">Financing Injections & Capital Rounds</h3>

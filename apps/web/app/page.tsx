@@ -78,11 +78,6 @@ export default function AppHome() {
     setActiveTab("overview");
   };
 
-  const handleSkipToDemo = () => {
-    setViewMode("dashboard");
-    setActiveTab("overview");
-  };
-
   // Screen 1: Mandatory Multi-Step Intake Assessment Screen
   if (viewMode === "assessment") {
     return (
@@ -90,7 +85,6 @@ export default function AppHome() {
         initialInputs={inputs}
         initialDecisionGoal={decisionGoalText}
         onComplete={handleAssessmentComplete}
-        onSkipToDemo={handleSkipToDemo}
       />
     );
   }

@@ -58,14 +58,15 @@ describe("UI Components", () => {
         initialInputs={DEFAULT_SAAS_MODEL}
         initialDecisionGoal="Reach ₹1 Crore ARR run rate within 12 months"
         onComplete={() => {}}
-        onSkipToDemo={() => {}}
       />
     );
 
-    expect(screen.getByText("Step 1: Company Identity & Planning Horizon")).toBeDefined();
+    expect(screen.getByText("Step 1: Company Identity, Type of Business & Funding Stage")).toBeDefined();
     expect(screen.getByText("Company / Startup Name")).toBeDefined();
+    expect(screen.getByText("Type of Business / Industry")).toBeDefined();
+    expect(screen.getByText("Funding Structure")).toBeDefined();
     expect(screen.getByText("Operating Currency")).toBeDefined();
-    expect(screen.getByText("Planning Horizon (Simulation Length)")).toBeDefined();
+    expect(screen.getByText("Simulation Horizon")).toBeDefined();
     expect(screen.getByText("Continue to Step 02")).toBeDefined();
   });
 });

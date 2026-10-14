@@ -283,6 +283,17 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ result, inputs }) =>
 
       {/* Monthly Projections Audit Table */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+        {/* Executive Schedule Justification Callout */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-xs text-slate-700 space-y-1">
+          <div className="flex items-center gap-2 font-bold text-slate-900">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+            <span>Deterministic Financial Reconciliation &amp; Operating Schedule</span>
+          </div>
+          <p className="leading-relaxed text-slate-600">
+            Monthly forward projections, customer cohort bridges, and balance sheet cash flows are dynamically generated from your verified company baseline and invariant economics. Line-item general ledgers are consolidated into executive operational schedules to provide maximum strategic clarity on runway, unit margins, and milestone feasibility.
+          </p>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-slate-800">Monthly Financial Statement Table</h3>

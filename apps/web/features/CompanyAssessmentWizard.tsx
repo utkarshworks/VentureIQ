@@ -22,274 +22,345 @@ import {
   Briefcase,
   DollarSign,
   ChevronRight,
-  SlidersHorizontal,
+  Loader2,
+  Coins,
+  ShieldAlert,
+  Layers,
+  HelpCircle,
 } from "lucide-react";
 
 interface CompanyAssessmentWizardProps {
   initialInputs: ModelEngineInputs;
   initialDecisionGoal: string;
   onComplete: (completedInputs: ModelEngineInputs, decisionGoal: string) => void;
-  onSkipToDemo: () => void;
 }
 
 export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = ({
   initialInputs,
   initialDecisionGoal,
   onComplete,
-  onSkipToDemo,
 }) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
 
-  // Step 1: Company Profile & Horizon
-  const [companyName, setCompanyName] = useState<string>(initialInputs.company_name || "");
-  const [businessModel, setBusinessModel] = useState<BusinessModelType>(initialInputs.business_model || "b2b_saas");
-  const [currency, setCurrency] = useState<CurrencyCode>(initialInputs.currency || "INR");
-  const [planningHorizon, setPlanningHorizon] = useState<number>(initialInputs.planning_horizon || 12);
+  // Step 1: Company Profile, Industry, Funding & Horizon
+  const [companyName, setCompanyName] = useState<string>("");
+  const [profileType, setProfileType] = useState<"B2B" | "B2C" | "D2C">("B2B");
+  const [businessType, setBusinessType] = useState<string>("SaaS");
+  const [fundingStructure, setFundingStructure] = useState<"bootstrapped" | "funded">("bootstrapped");
+  const [fundingStage, setFundingStage] = useState<string>("seed");
+  const [businessModelArch, setBusinessModelArch] = useState<string>("recurring_saas");
+  const [currency, setCurrency] = useState<CurrencyCode>("INR");
+  const [planningHorizon, setPlanningHorizon] = useState<number>(12);
 
-  // Step 2: Baseline Revenue & Customers
-  const [customers, setCustomers] = useState<number>(initialInputs.initial_paying_customers ?? 40);
-  const [arpu, setArpu] = useState<number>(initialInputs.arpu ?? 3500);
-  const [cashBalance, setCashBalance] = useState<number>(initialInputs.initial_cash_balance ?? 3500000);
-  const [minReserve, setMinReserve] = useState<number>(initialInputs.minimum_cash_reserve ?? 800000);
+  // Step 2: Baseline Revenue, Customers & Cash
+  const [customers, setCustomers] = useState<string>("");
+  const [arpu, setArpu] = useState<string>("");
+  const [cashBalance, setCashBalance] = useState<string>("");
+  const [minReserve, setMinReserve] = useState<string>("");
 
-  // Step 3: Growth, Acquisition & Churn
-  const [acquisitionMode, setAcquisitionMode] = useState<AcquisitionMode>(initialInputs.acquisition_mode || "lead_based");
-  const [monthlyLeads, setMonthlyLeads] = useState<number>(initialInputs.monthly_leads ?? 1200);
-  const [leadConversionRate, setLeadConversionRate] = useState<number>(initialInputs.lead_conversion_rate ?? 0.035);
-  const [costPerLead, setCostPerLead] = useState<number>(initialInputs.cost_per_lead ?? 180);
-  const [acquisitionBudget, setAcquisitionBudget] = useState<number>(initialInputs.acquisition_budget ?? 250000);
-  const [targetCac, setTargetCac] = useState<number>(initialInputs.target_cac ?? 6000);
-  const [organicCustomers, setOrganicCustomers] = useState<number>(initialInputs.organic_new_customers ?? 3);
-  const [churnRate, setChurnRate] = useState<number>(initialInputs.customer_churn_rate ?? 0.025);
-  const [expansionRate, setExpansionRate] = useState<number>(initialInputs.expansion_rate ?? 0.015);
+  // Step 3: Growth, Acquisition & Retention
+  const [acquisitionMode, setAcquisitionMode] = useState<AcquisitionMode>("lead_based");
+  const [monthlyLeads, setMonthlyLeads] = useState<string>("");
+  const [leadConversionRate, setLeadConversionRate] = useState<string>("");
+  const [costPerLead, setCostPerLead] = useState<string>("");
+  const [acquisitionBudget, setAcquisitionBudget] = useState<string>("");
+  const [targetCac, setTargetCac] = useState<string>("");
+  const [organicCustomers, setOrganicCustomers] = useState<string>("");
+  const [churnRate, setChurnRate] = useState<string>("");
+  const [expansionRate, setExpansionRate] = useState<string>("");
 
-  // Step 4: Cost Structure & Team
-  const [monthlyPayroll, setMonthlyPayroll] = useState<number>(205000);
-  const [fixedOpex, setFixedOpex] = useState<number>(initialInputs.fixed_opex ?? 120000);
-  const [paymentProcRate, setPaymentProcRate] = useState<number>(initialInputs.payment_processing_rate ?? 0.025);
-  const [hostingPerCustomer, setHostingPerCustomer] = useState<number>(initialInputs.hosting_cost_per_customer ?? 15);
-  const [servicingPerCustomer, setServicingPerCustomer] = useState<number>(initialInputs.servicing_cost_per_customer ?? 40);
+  // Step 4: Operating Expenses & Team Structure
+  const [monthlyPayroll, setMonthlyPayroll] = useState<string>("");
+  const [fixedOpex, setFixedOpex] = useState<string>("");
+  const [paymentProcRate, setPaymentProcRate] = useState<string>("");
+  const [variableCogs, setVariableCogs] = useState<string>("");
 
   // Step 5: Strategic Milestone & Reverse-Planning Decision Goal
   const [decisionPreset, setDecisionPreset] = useState<string>("target_arr");
-  const [decisionGoalText, setDecisionGoalText] = useState<string>(
-    initialDecisionGoal || "Reach ₹1 Crore ARR run rate within 12 months with ₹25 Lakh budget."
-  );
+  const [decisionGoalText, setDecisionGoalText] = useState<string>("");
 
-  // Document/Notes Heuristic Extraction State
+  // Document/Deck Parser State
   const [showDocExtractor, setShowDocExtractor] = useState<boolean>(false);
   const [pastedText, setPastedText] = useState<string>("");
+  const [isParsing, setIsParsing] = useState<boolean>(false);
   const [extractorNotification, setExtractorNotification] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1-Click Profile Presets
-  const handleApplyPreset = (type: "seed_b2b" | "bootstrapped" | "b2c" | "enterprise") => {
-    if (type === "seed_b2b") {
-      setCompanyName("CloudFlow Analytics");
-      setCurrency("INR");
-      setBusinessModel("b2b_saas");
-      setPlanningHorizon(12);
-      setCustomers(45);
-      setArpu(4000);
-      setCashBalance(3500000);
-      setMinReserve(700000);
+  // Business Type Options
+  const businessTypes = [
+    { id: "SaaS", label: "SaaS" },
+    { id: "IT & Tech Services", label: "IT & Tech Services" },
+    { id: "Consumer Product", label: "Consumer Product" },
+    { id: "Mobile App", label: "Mobile App" },
+    { id: "E-Commerce / D2C Brand", label: "E-Commerce / D2C" },
+    { id: "AI & DeepTech", label: "AI & DeepTech" },
+    { id: "Other", label: "Other" },
+  ];
+
+  // Business Model Architecture Options
+  const businessModelOptions = [
+    { id: "recurring_saas", label: "Recurring Subscription (SaaS / Membership)", coreType: "b2b_saas" },
+    { id: "usage_based", label: "Usage-Based / Consumption Model", coreType: "b2b_saas" },
+    { id: "tiered_recurring", label: "Tiered Recurring + Implementation Fees", coreType: "b2b_saas" },
+    { id: "marketplace", label: "Transactional Marketplace", coreType: "b2c_subscription" },
+    { id: "d2c_retention", label: "Direct-to-Consumer (Repeat Purchase / Retention)", coreType: "b2c_subscription" },
+    { id: "productized_agency", label: "Retainer / Productized Agency", coreType: "subscription_services" },
+  ];
+
+  // Funding Stage Options
+  const fundingStages = [
+    { id: "pre_seed", label: "Pre-Seed" },
+    { id: "seed", label: "Seed" },
+    { id: "series_a", label: "Series A" },
+    { id: "series_b", label: "Series B+" },
+    { id: "angel_grants", label: "Angel / Grants" },
+  ];
+
+  // 1-Click Profile Selection (B2B, B2C, D2C)
+  const handleSelectProfileType = (type: "B2B" | "B2C" | "D2C") => {
+    setProfileType(type);
+    if (type === "B2B") {
+      setBusinessType("SaaS");
+      setBusinessModelArch("recurring_saas");
       setAcquisitionMode("lead_based");
-      setMonthlyLeads(1400);
-      setLeadConversionRate(0.035);
-      setCostPerLead(180);
-      setAcquisitionBudget(250000);
-      setChurnRate(0.025);
-      setMonthlyPayroll(210000);
-      setFixedOpex(120000);
-      setDecisionGoalText("Target ₹1.5 Crore ARR in 12 months with ₹35 Lakh budget.");
-    } else if (type === "bootstrapped") {
-      setCompanyName("QuickMetrics B2B");
-      setCurrency("INR");
-      setBusinessModel("b2b_saas");
-      setPlanningHorizon(12);
-      setCustomers(120);
-      setArpu(2000);
-      setCashBalance(1200000);
-      setMinReserve(300000);
-      setAcquisitionMode("lead_based");
-      setMonthlyLeads(800);
-      setLeadConversionRate(0.04);
-      setCostPerLead(100);
-      setAcquisitionBudget(80000);
-      setChurnRate(0.02);
-      setMonthlyPayroll(150000);
-      setFixedOpex(60000);
-      setDecisionGoalText("Can we achieve operating break-even within 6 months without external funding?");
-    } else if (type === "b2c") {
-      setCompanyName("ProFit Mobile");
-      setCurrency("INR");
-      setBusinessModel("b2c_subscription");
-      setPlanningHorizon(12);
-      setCustomers(850);
-      setArpu(499);
-      setCashBalance(1800000);
-      setMinReserve(400000);
+      setExtractorNotification("Profile configured for B2B Enterprise / SaaS.");
+    } else if (type === "B2C") {
+      setBusinessType("Mobile App");
+      setBusinessModelArch("recurring_saas");
       setAcquisitionMode("budget_based");
-      setAcquisitionBudget(300000);
-      setTargetCac(1200);
-      setChurnRate(0.06);
-      setMonthlyPayroll(180000);
-      setFixedOpex(90000);
-      setDecisionGoalText("Evaluate marketing scale from ₹3L to ₹6L per month while keeping ₹4L reserve.");
+      setExtractorNotification("Profile configured for B2C Consumer Subscription.");
     } else {
-      setCompanyName("EnterpriseGrid");
-      setCurrency("USD");
-      setBusinessModel("b2b_saas");
-      setPlanningHorizon(18);
-      setCustomers(12);
-      setArpu(1800);
-      setCashBalance(450000);
-      setMinReserve(90000);
-      setAcquisitionMode("lead_based");
-      setMonthlyLeads(250);
-      setLeadConversionRate(0.05);
-      setCostPerLead(120);
-      setAcquisitionBudget(30000);
-      setChurnRate(0.01);
-      setMonthlyPayroll(35000);
-      setFixedOpex(15000);
-      setDecisionGoalText("Reach $1M ARR within 18 months with $450K cash budget.");
+      setBusinessType("E-Commerce / D2C Brand");
+      setBusinessModelArch("d2c_retention");
+      setAcquisitionMode("budget_based");
+      setExtractorNotification("Profile configured for Direct-to-Consumer (D2C).");
     }
-    setExtractorNotification("Profile preset applied across all assessment steps!");
   };
 
-  // Heuristic Extractor from pasted text or uploaded document
-  const handleExtractFromText = (text: string, sourceLabel: string) => {
-    const raw = text.toLowerCase();
-    let fieldsCount = 0;
+  // Populate wizard from parsed payload
+  const applyExtractedData = (data: any, method: string, sourceLabel: string, count: number) => {
+    if (data.company_name) setCompanyName(data.company_name);
+    if (data.profile_type && ["B2B", "B2C", "D2C"].includes(data.profile_type)) {
+      setProfileType(data.profile_type);
+    }
+    if (data.business_type) setBusinessType(data.business_type);
+    if (data.funding_structure) setFundingStructure(data.funding_structure);
+    if (data.funding_stage) setFundingStage(data.funding_stage);
+    if (data.currency && ["INR", "USD", "EUR", "GBP"].includes(data.currency)) {
+      setCurrency(data.currency as CurrencyCode);
+    }
+    if (data.planning_horizon) setPlanningHorizon(data.planning_horizon);
 
-    if (raw.includes("dollar") || raw.includes("$") || raw.includes("usd")) {
-      setCurrency("USD");
-      fieldsCount++;
-    } else if (raw.includes("₹") || raw.includes("inr") || raw.includes("rupee") || raw.includes("lakh") || raw.includes("crore")) {
-      setCurrency("INR");
-      fieldsCount++;
+    if (data.initial_paying_customers !== undefined && data.initial_paying_customers !== null) {
+      setCustomers(String(data.initial_paying_customers));
+    }
+    if (data.arpu !== undefined && data.arpu !== null) {
+      setArpu(String(data.arpu));
+    }
+    if (data.initial_cash_balance !== undefined && data.initial_cash_balance !== null) {
+      setCashBalance(String(data.initial_cash_balance));
+    }
+    if (data.minimum_cash_reserve !== undefined && data.minimum_cash_reserve !== null) {
+      setMinReserve(String(data.minimum_cash_reserve));
     }
 
-    const nameMatch = text.match(/(?:company|startup|name|project)[:\s]+([A-Za-z0-9\s]{3,25})/i);
-    if (nameMatch && nameMatch[1]) {
-      setCompanyName(nameMatch[1].trim());
-      fieldsCount++;
+    if (data.acquisition_mode) setAcquisitionMode(data.acquisition_mode);
+    if (data.monthly_leads !== undefined && data.monthly_leads !== null) setMonthlyLeads(String(data.monthly_leads));
+    if (data.lead_conversion_rate !== undefined && data.lead_conversion_rate !== null) {
+      setLeadConversionRate(String(data.lead_conversion_rate));
+    }
+    if (data.cost_per_lead !== undefined && data.cost_per_lead !== null) setCostPerLead(String(data.cost_per_lead));
+    if (data.acquisition_budget !== undefined && data.acquisition_budget !== null) {
+      setAcquisitionBudget(String(data.acquisition_budget));
+    }
+    if (data.target_cac !== undefined && data.target_cac !== null) setTargetCac(String(data.target_cac));
+    if (data.customer_churn_rate !== undefined && data.customer_churn_rate !== null) {
+      setChurnRate(String(data.customer_churn_rate));
+    }
+    if (data.expansion_rate !== undefined && data.expansion_rate !== null) {
+      setExpansionRate(String(data.expansion_rate));
     }
 
-    const custMatch = raw.match(/(\d+)\s*(?:paying\s*)?(?:customers|clients|accounts|users|subscribers)/);
-    if (custMatch) {
-      setCustomers(parseInt(custMatch[1], 10));
-      fieldsCount++;
+    if (data.monthly_payroll !== undefined && data.monthly_payroll !== null) {
+      setMonthlyPayroll(String(data.monthly_payroll));
     }
-
-    const arpuMatch = raw.match(/(?:₹|\$|€|rs\.?|inr)?\s*(\d{2,6})\s*(?:\/|per|\s)*(?:month|mo|cust|user|arpu|seat)/);
-    if (arpuMatch) {
-      setArpu(parseInt(arpuMatch[1], 10));
-      fieldsCount++;
+    if (data.fixed_opex !== undefined && data.fixed_opex !== null) {
+      setFixedOpex(String(data.fixed_opex));
     }
+    if (data.decision_goal) setDecisionGoalText(data.decision_goal);
 
-    const cashLakhMatch = raw.match(/(?:cash|bank|balance|reserve)[\s\w:]*(\d+(?:\.\d+)?)\s*(?:lakh|l)/);
-    if (cashLakhMatch) {
-      const lakhs = parseFloat(cashLakhMatch[1]);
-      setCashBalance(Math.round(lakhs * 100000));
-      setMinReserve(Math.round(lakhs * 20000));
-      fieldsCount++;
-    } else {
-      const cashMatch = raw.match(/(?:cash|bank|balance|reserve)[\s\w:]*(\d{4,9})/);
-      if (cashMatch) {
-        const cashVal = parseInt(cashMatch[1], 10);
-        setCashBalance(cashVal);
-        setMinReserve(Math.round(cashVal * 0.2));
-        fieldsCount++;
-      }
-    }
-
-    const churnMatch = raw.match(/(\d+(?:\.\d+)?)\s*%\s*(?:monthly\s*)?churn/);
-    if (churnMatch) {
-      setChurnRate(parseFloat(churnMatch[1]) / 100);
-      fieldsCount++;
-    }
-
-    const decisionMatch = text.match(/(?:goal|target|decision|objective)[:\s]+([^\n.]{15,120})/i);
-    if (decisionMatch && decisionMatch[1]) {
-      setDecisionGoalText(decisionMatch[1].trim());
-      fieldsCount++;
-    }
-
-    setExtractorNotification(`Parsed ${fieldsCount} parameters from ${sourceLabel}. Check steps below.`);
+    const engineName = method === "gemini-2.5-flash" ? "Google Gemini 2.5 Flash" : "VentureIQ Document Parser";
+    setExtractorNotification(`Successfully extracted ${count || "key"} financial parameters from ${sourceLabel} via ${engineName}.`);
     setShowDocExtractor(false);
   };
 
+  // Call `/api/ai/parse-deck` with pasted text
+  const handleParsePastedText = async () => {
+    if (!pastedText.trim()) return;
+    setIsParsing(true);
+    try {
+      const res = await fetch("/api/ai/parse-deck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pastedText }),
+      });
+      const json = await res.json();
+      if (json.success && json.extractedData) {
+        applyExtractedData(json.extractedData, json.method, "Pasted Notes", json.fieldsCount);
+      } else {
+        setExtractorNotification("Could not parse parameters. Please fill in the questions directly.");
+      }
+    } catch (err: any) {
+      setExtractorNotification(`Document analysis notice: ${err?.message || "Please check connection"}`);
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  // Call `/api/ai/parse-deck` with uploaded file (PDF / Text / CSV / MD)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setIsParsing(true);
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = (event.target?.result as string) || "";
-      handleExtractFromText(content, file.name);
+
+    reader.onload = async (event) => {
+      try {
+        const result = event.target?.result as string;
+        // Strip data URI header: "data:application/pdf;base64,"
+        const base64Index = result.indexOf(";base64,");
+        const fileBase64 = base64Index !== -1 ? result.substring(base64Index + 8) : result;
+
+        const res = await fetch("/api/ai/parse-deck", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileBase64,
+            fileName: file.name,
+            mimeType: file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "text/plain"),
+          }),
+        });
+
+        const json = await res.json();
+        if (json.success && json.extractedData) {
+          applyExtractedData(json.extractedData, json.method, file.name, json.fieldsCount);
+        } else {
+          setExtractorNotification(`Could not extract parameters from ${file.name}. Please enter your details below.`);
+        }
+      } catch (err: any) {
+        setExtractorNotification(`Failed to upload ${file.name}: ${err?.message || "Error"}`);
+      } finally {
+        setIsParsing(false);
+      }
     };
-    reader.readAsText(file);
+
+    reader.readAsDataURL(file);
   };
 
+  // Convert entered values to numerical simulation model
   const handleFinalSubmit = () => {
-    const calculatedPayroll = Math.max(0, monthlyPayroll);
+    const rawPayroll = Number(monthlyPayroll) || 0;
+    const selectedModel = businessModelOptions.find((b) => b.id === businessModelArch)?.coreType || "b2b_saas";
+
+    const numCustomers = Number(customers) || 0;
+    const numArpu = Number(arpu) || 0;
+    const numCash = Number(cashBalance) || 0;
+    const numMinReserve = minReserve ? Number(minReserve) : Math.round(numCash * 0.2);
+
+    const numLeads = Number(monthlyLeads) || 0;
+    const numConv = leadConversionRate ? Number(leadConversionRate) : 0.035;
+    const numCostPerLead = Number(costPerLead) || 0;
+    const numBudget = Number(acquisitionBudget) || 0;
+    const numTargetCac = Number(targetCac) || 0;
+    const numOrganic = Number(organicCustomers) || 0;
+    const numChurn = churnRate ? Number(churnRate) : 0.025;
+    const numExpansion = expansionRate ? Number(expansionRate) : 0.015;
+
+    const numFixedOpex = Number(fixedOpex) || 0;
+    const numProcRate = paymentProcRate ? Number(paymentProcRate) : 0.025;
+    const numVariableCogs = Number(variableCogs) || 0;
+
+    const goal =
+      decisionGoalText.trim() ||
+      `Reach ${currency === "INR" ? "₹1 Crore" : "$1 Million"} ARR run rate with sustainable cash runway.`;
+
     const updatedInputs: ModelEngineInputs = {
       ...initialInputs,
-      company_name: companyName.trim() || "My Startup",
-      business_model: businessModel,
+      company_name: companyName.trim() || "My Venture",
+      business_model: selectedModel as BusinessModelType,
       currency,
-      planning_horizon: Number(planningHorizon),
+      planning_horizon: Number(planningHorizon) || 12,
 
-      initial_paying_customers: Number(customers),
-      arpu: Number(arpu),
-      initial_cash_balance: Number(cashBalance),
-      minimum_cash_reserve: Number(minReserve),
+      initial_paying_customers: numCustomers,
+      arpu: numArpu > 0 ? numArpu : 1,
+      initial_cash_balance: numCash,
+      minimum_cash_reserve: numMinReserve,
 
       acquisition_mode: acquisitionMode,
-      monthly_leads: Number(monthlyLeads),
-      lead_conversion_rate: Number(leadConversionRate),
-      cost_per_lead: Number(costPerLead),
-      acquisition_budget: Number(acquisitionBudget),
-      target_cac: Number(targetCac),
-      organic_new_customers: Number(organicCustomers),
-      customer_churn_rate: Number(churnRate),
-      expansion_rate: Number(expansionRate),
+      monthly_leads: numLeads,
+      lead_conversion_rate: numConv,
+      cost_per_lead: numCostPerLead,
+      acquisition_budget: numBudget,
+      target_cac: numTargetCac > 0 ? numTargetCac : 1,
+      organic_new_customers: numOrganic,
+      customer_churn_rate: numChurn,
+      expansion_rate: numExpansion,
 
-      fixed_opex: Number(fixedOpex),
-      payment_processing_rate: Number(paymentProcRate),
-      hosting_cost_per_customer: Number(hostingPerCustomer),
-      servicing_cost_per_customer: Number(servicingPerCustomer),
+      fixed_opex: numFixedOpex,
+      payment_processing_rate: numProcRate,
+      hosting_cost_per_customer: Math.round(numVariableCogs * 0.4),
+      servicing_cost_per_customer: Math.round(numVariableCogs * 0.6),
 
-      hiring_roles: [
-        {
-          role_title: "Core Team",
-          department: "Operations",
-          headcount: 1,
-          monthly_salary: calculatedPayroll,
-          employer_burden_rate: 0.1,
-          start_month: 1,
-          annual_increase_rate: 0.05,
-        },
-      ],
+      // Model active team payroll as a unified operational organizational unit
+      hiring_roles:
+        rawPayroll > 0
+          ? [
+              {
+                role_title: "Core Operations Team",
+                department: "Consolidated Operations",
+                headcount: 1,
+                monthly_salary: rawPayroll,
+                employer_burden_rate: 0.1,
+                start_month: 1,
+                annual_increase_rate: 0.05,
+              },
+            ]
+          : [],
+      financing_events: [],
     };
 
-    onComplete(updatedInputs, decisionGoalText);
+    onComplete(updatedInputs, goal);
   };
 
   const stepsList = [
-    { num: 1, label: "Company Profile" },
+    { num: 1, label: "Profile & Stage" },
     { num: 2, label: "Revenue & Base" },
     { num: 3, label: "Growth & Retention" },
     { num: 4, label: "Costs & Team" },
-    { num: 5, label: "Strategic Decision" },
+    { num: 5, label: "Decision Goal" },
   ];
 
   // Dynamic calculations for preview
-  const currentMrr = customers * arpu;
+  const numCust = Number(customers) || 0;
+  const numPrice = Number(arpu) || 0;
+  const currentMrr = numCust * numPrice;
   const currentArr = currentMrr * 12;
-  const currentMonthlyBurnEstimate = monthlyPayroll + fixedOpex + (acquisitionMode === "lead_based" ? monthlyLeads * costPerLead : acquisitionBudget);
-  const roughRunwayMonths = cashBalance > 0 && currentMonthlyBurnEstimate > currentMrr ? (cashBalance / (currentMonthlyBurnEstimate - currentMrr)).toFixed(1) : "Healthy (> 24M)";
+
+  const numPay = Number(monthlyPayroll) || 0;
+  const numOp = Number(fixedOpex) || 0;
+  const numAcq =
+    acquisitionMode === "lead_based"
+      ? (Number(monthlyLeads) || 0) * (Number(costPerLead) || 0)
+      : Number(acquisitionBudget) || 0;
+  const currentMonthlyBurnEstimate = numPay + numOp + numAcq;
+  const numBankCash = Number(cashBalance) || 0;
+  const roughRunwayMonths =
+    numBankCash > 0 && currentMonthlyBurnEstimate > currentMrr
+      ? (numBankCash / (currentMonthlyBurnEstimate - currentMrr)).toFixed(1) + " Mos"
+      : numBankCash > 0
+      ? "Breakeven / Positive"
+      : "Enter cash details";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between p-4 sm:p-8 font-sans">
@@ -303,112 +374,105 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold tracking-tight text-slate-900">VentureIQ</span>
               <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                Company Intake Assessment
+                Founders Financial Intake Assessment
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Answer 5 quick sections to build your live financial model &amp; reverse-planning solver
+              Answer 5 sections to build your live financial model &amp; reverse-planning solver
             </p>
           </div>
         </div>
-
-        <button
-          onClick={onSkipToDemo}
-          className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors underline underline-offset-4"
-        >
-          Skip to Demo Dashboard &rarr;
-        </button>
       </header>
 
       {/* Main Assessment Container */}
       <main className="max-w-4xl mx-auto w-full py-8 space-y-6 flex-1">
-        {/* Quick Profiles Bar */}
+        {/* Profile Selector & AI Deck Parser Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span className="text-xs font-semibold text-slate-700">
-              Quick 1-Click Profiles:
-            </span>
+            <span className="text-xs font-semibold text-slate-700">Company Profile:</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleApplyPreset("seed_b2b")}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-800 transition-all"
-            >
-              Seed B2B SaaS
-            </button>
-            <button
-              type="button"
-              onClick={() => handleApplyPreset("bootstrapped")}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-800 transition-all"
-            >
-              Bootstrapped B2B
-            </button>
-            <button
-              type="button"
-              onClick={() => handleApplyPreset("b2c")}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-800 transition-all"
-            >
-              B2C Mobile App
-            </button>
-            <button
-              type="button"
-              onClick={() => handleApplyPreset("enterprise")}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-800 transition-all"
-            >
-              Enterprise Tier
-            </button>
+            {(["B2B", "B2C", "D2C"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => handleSelectProfileType(p)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all border ${
+                  profileType === p
+                    ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-100"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+
             <button
               type="button"
               onClick={() => setShowDocExtractor(!showDocExtractor)}
-              className="flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100 transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-all ml-auto sm:ml-2"
             >
-              <FileUp className="h-3 w-3" />
+              <FileUp className="h-3.5 w-3.5" />
               <span>Paste Notes / Upload Deck</span>
             </button>
           </div>
         </div>
 
-        {/* Notes / Document Extractor Panel */}
+        {/* Pitch Deck / Document Extractor Dropdown */}
         {showDocExtractor && (
-          <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-4 space-y-3 animate-in fade-in duration-150">
+          <div className="rounded-2xl border border-purple-200 bg-purple-50/70 p-5 space-y-4 animate-in fade-in duration-150">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-                <FileText className="h-4 w-4" />
-                Paste Pitch Summary or Upload Document
+              <span className="text-xs font-bold text-purple-900 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-purple-700" />
+                Intelligent Pitch Deck &amp; Notes Parser
               </span>
               <button
                 onClick={() => setShowDocExtractor(false)}
-                className="text-xs text-slate-500 hover:text-slate-900"
+                className="text-xs text-slate-500 hover:text-slate-900 font-medium"
               >
                 Close
               </button>
             </div>
+            <p className="text-xs text-slate-600">
+              Upload your startup pitch deck (PDF) or paste rough executive notes. VentureIQ extracts all financial parameters directly into the assessment.
+            </p>
+
             <textarea
               rows={4}
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
-              placeholder="e.g. 'We are an AI SaaS startup called CloudFlow with 45 paying customers paying ₹4,000/month. We have ₹35 Lakhs in the bank, 2.5% churn, and spend ₹2.5L on marketing. We want to see if we can reach ₹1.5 Crore ARR in 12 months.'"
+              placeholder="Paste notes here, e.g.: 'We are an AI SaaS startup with 45 paying customers at ₹4,000/mo. We have ₹35 Lakh in bank, 2.5% churn, ₹2.5L marketing spend. Goal is to hit ₹1.5 Cr ARR in 12 months with ₹35L budget.'"
               className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 font-sans"
             />
-            <div className="flex items-center justify-between gap-3">
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
               <button
                 type="button"
-                onClick={() => handleExtractFromText(pastedText, "pasted notes")}
-                disabled={!pastedText.trim()}
-                className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700 transition-all disabled:opacity-50"
+                onClick={handleParsePastedText}
+                disabled={isParsing || !pastedText.trim()}
+                className="flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-purple-700 transition-all disabled:opacity-50 shadow-sm"
               >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Auto-Fill Assessment Steps</span>
+                {isParsing ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Extracting Parameters...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Extract from Pasted Notes</span>
+                  </>
+                )}
               </button>
+
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 text-xs text-purple-700 hover:text-purple-900 cursor-pointer underline font-medium"
+                className="flex items-center gap-2 rounded-xl border border-purple-300 bg-white px-4 py-2.5 text-xs font-semibold text-purple-700 hover:bg-purple-50 cursor-pointer transition-all shadow-sm"
               >
                 <FileUp className="h-3.5 w-3.5" />
-                <span>Or upload file (PDF, TXT, MD)</span>
+                <span>Upload Pitch Deck (PDF, TXT, MD, CSV)</span>
               </div>
               <input
                 type="file"
@@ -423,9 +487,9 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
 
         {/* Extractor Notification */}
         {extractorNotification && (
-          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800">
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-800">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-            <span className="font-medium">{extractorNotification}</span>
+            <span className="font-semibold">{extractorNotification}</span>
           </div>
         )}
 
@@ -438,56 +502,156 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
               onClick={() => setCurrentStep(s.num)}
               className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all ${
                 currentStep === s.num
-                  ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
+                  ? "bg-slate-900 border-slate-900 text-white shadow-sm"
                   : currentStep > s.num
                   ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                   : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-800"
               }`}
             >
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${currentStep === s.num ? "text-emerald-100" : "text-slate-400"}`}>
+              <span
+                className={`text-[10px] font-bold uppercase tracking-wider ${
+                  currentStep === s.num ? "text-slate-300" : "text-slate-400"
+                }`}
+              >
                 Step 0{s.num}
               </span>
-              <span className="text-xs font-semibold truncate w-full">
-                {s.label}
-              </span>
+              <span className="text-xs font-semibold truncate w-full">{s.label}</span>
             </button>
           ))}
         </div>
 
         {/* Assessment Card */}
         <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
-          {/* STEP 1: Company Profile & Horizon */}
+          {/* STEP 1: Company Profile, Business Type, Funding & Model */}
           {currentStep === 1 && (
-            <div className="space-y-5 animate-in fade-in duration-150">
+            <div className="space-y-6 animate-in fade-in duration-150">
               <div className="space-y-1">
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-emerald-600" />
-                  <span>Step 1: Company Identity &amp; Planning Horizon</span>
+                  <span>Step 1: Company Identity, Type of Business &amp; Funding Stage</span>
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Define your venture&apos;s name, operational model, and the timeline you are forecasting.
+                  Provide your venture&apos;s legal name, core industry category, and capital structure.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Company / Startup Name
-                  </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {/* Company Name */}
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700">Company / Startup Name</label>
                   <input
                     type="text"
-                    required
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="e.g. ApexCloud Technologies"
+                    placeholder="Enter company name"
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
+                {/* Type of Business / Industry Section */}
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="text-xs font-semibold text-slate-700">Type of Business / Industry</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {businessTypes.map((bt) => (
+                      <button
+                        key={bt.id}
+                        type="button"
+                        onClick={() => setBusinessType(bt.id)}
+                        className={`rounded-xl border p-2.5 text-xs text-center font-medium transition-all ${
+                          businessType === bt.id
+                            ? "bg-slate-900 text-white border-slate-900 font-bold shadow-sm"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        {bt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Funding Structure: Bootstrapped vs Funded */}
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700">Funding Structure</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFundingStructure("bootstrapped")}
+                      className={`rounded-xl border p-3 text-left transition-all text-xs ${
+                        fundingStructure === "bootstrapped"
+                          ? "bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-sm"
+                          : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="font-bold">Bootstrapped</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 font-normal">
+                        Self-funded, operating on customer revenue &amp; positive unit economics
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFundingStructure("funded")}
+                      className={`rounded-xl border p-3 text-left transition-all text-xs ${
+                        fundingStructure === "funded"
+                          ? "bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-sm"
+                          : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="font-bold">Funded Startup</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 font-normal">
+                        Backed by institutional venture capital, angel syndicates, or grants
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* If Funded: Stage Selection */}
+                {fundingStructure === "funded" && (
+                  <div className="sm:col-span-2 space-y-2 animate-in fade-in duration-150">
+                    <label className="text-xs font-semibold text-slate-700">Current Funding Stage</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {fundingStages.map((stage) => (
+                        <button
+                          key={stage.id}
+                          type="button"
+                          onClick={() => setFundingStage(stage.id)}
+                          className={`rounded-xl border p-2 text-xs text-center font-medium transition-all ${
+                            fundingStage === stage.id
+                              ? "bg-emerald-600 text-white border-emerald-600 font-bold shadow-sm"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
+                          }`}
+                        >
+                          {stage.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Business Model Architecture Options */}
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="text-xs font-semibold text-slate-700">Business Model Architecture</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {businessModelOptions.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setBusinessModelArch(opt.id)}
+                        className={`rounded-xl border p-3 text-left text-xs transition-all ${
+                          businessModelArch === opt.id
+                            ? "bg-slate-900 text-white border-slate-900 font-semibold shadow-sm"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Operating Currency */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Operating Currency
-                  </label>
+                  <label className="text-xs font-semibold text-slate-700">Operating Currency</label>
                   <div className="mt-1.5 grid grid-cols-4 gap-1.5">
                     {(["INR", "USD", "EUR", "GBP"] as CurrencyCode[]).map((c) => (
                       <button
@@ -506,25 +670,9 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                   </div>
                 </div>
 
+                {/* Planning Horizon */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Business Model Architecture
-                  </label>
-                  <select
-                    value={businessModel}
-                    onChange={(e) => setBusinessModel(e.target.value as BusinessModelType)}
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="b2b_saas">B2B SaaS (Software as a Service)</option>
-                    <option value="b2c_subscription">B2C Subscription (Mobile / Consumer)</option>
-                    <option value="subscription_services">Subscription-Based Services / Productized Agency</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Planning Horizon (Simulation Length)
-                  </label>
+                  <label className="text-xs font-semibold text-slate-700">Simulation Horizon</label>
                   <div className="mt-1.5 grid grid-cols-4 gap-1.5">
                     {[12, 18, 24, 36].map((m) => (
                       <button
@@ -555,23 +703,22 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                   <span>Step 2: Baseline Revenue, Customers &amp; Cash Position</span>
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Where does your startup stand today? Input current paying customers, monthly pricing, and bank cash.
+                  Where does your venture stand today? Enter active customers, monthly price per unit, and available cash.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Current Paying Customers (Accounts)
-                  </label>
+                  <label className="text-xs font-semibold text-slate-700">Current Paying Customers (Accounts)</label>
                   <input
                     type="number"
                     min={0}
                     value={customers}
-                    onChange={(e) => setCustomers(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    onChange={(e) => setCustomers(e.target.value)}
+                    placeholder="Enter paying customer count"
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">Active paying subscription accounts</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Active recurring subscription or paying clients</span>
                 </div>
 
                 <div>
@@ -580,62 +727,67 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                   </label>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     value={arpu}
-                    onChange={(e) => setArpu(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    onChange={(e) => setArpu(e.target.value)}
+                    placeholder="Enter monthly price per customer"
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">Average revenue generated per customer per month</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Average revenue generated per paying account monthly</span>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Current Bank Cash Balance ({currency})
-                  </label>
+                  <label className="text-xs font-semibold text-slate-700">Current Bank Cash Balance ({currency})</label>
                   <input
                     type="number"
                     min={0}
                     value={cashBalance}
-                    onChange={(e) => setCashBalance(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    onChange={(e) => setCashBalance(e.target.value)}
+                    placeholder="Enter liquid bank cash"
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">Total liquid cash available for operations</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Total available operating treasury funds</span>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Minimum Safety Reserve Floor ({currency})
-                  </label>
+                  <label className="text-xs font-semibold text-slate-700">Minimum Safety Reserve Floor ({currency})</label>
                   <input
                     type="number"
                     min={0}
                     value={minReserve}
-                    onChange={(e) => setMinReserve(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    onChange={(e) => setMinReserve(e.target.value)}
+                    placeholder="Enter safety reserve floor"
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">Threshold below which VentureIQ raises solvency alerts</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Threshold below which VentureIQ flags solvency alerts</span>
                 </div>
               </div>
 
               {/* Live Baseline Preview */}
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-wrap items-center justify-between gap-4 text-xs">
                 <div>
-                  <span className="text-slate-500 block text-[11px] font-medium">Calculated Starting MRR</span>
-                  <span className="text-sm font-extrabold text-slate-900">{formatCurrency(currentMrr, currency, false)}</span>
+                  <span className="text-slate-500 block text-[11px] font-medium">Calculated Monthly Revenue (MRR)</span>
+                  <span className="text-sm font-extrabold text-slate-900">
+                    {formatCurrency(currentMrr, currency, false)}
+                  </span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[11px] font-medium">Starting ARR Run Rate</span>
-                  <span className="text-sm font-extrabold text-emerald-700">{formatCurrency(currentArr, currency, true)}</span>
+                  <span className="text-sm font-extrabold text-emerald-700">
+                    {formatCurrency(currentArr, currency, true)}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[11px] font-medium">Liquid Net Runway Buffer</span>
-                  <span className="text-sm font-extrabold text-slate-900">{formatCurrency(Math.max(0, cashBalance - minReserve), currency, true)}</span>
+                  <span className="text-slate-500 block text-[11px] font-medium">Operational Cash Cushion</span>
+                  <span className="text-sm font-extrabold text-slate-900">
+                    {formatCurrency(Math.max(0, (Number(cashBalance) || 0) - (Number(minReserve) || 0)), currency, true)}
+                  </span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* STEP 3: Growth, Acquisition & Churn */}
+          {/* STEP 3: Growth Engine & Retention */}
           {currentStep === 3 && (
             <div className="space-y-5 animate-in fade-in duration-150">
               <div className="space-y-1">
@@ -644,7 +796,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                   <span>Step 3: Growth Engine, CAC &amp; Churn Dynamics</span>
                 </h2>
                 <p className="text-xs text-slate-500">
-                  How does your funnel work? How fast do you acquire and retain customers?
+                  Select your primary acquisition method and define your retention profile.
                 </p>
               </div>
 
@@ -659,7 +811,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Lead-Based Funnel (Inbound / SDRs)
+                    Lead-Based Funnel (Inbound / Sales)
                   </button>
                   <button
                     type="button"
@@ -670,21 +822,20 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Paid Acquisition Budget (Ads / Performance)
+                    Paid Performance Budget (Ads / Channels)
                   </button>
                 </div>
 
                 {acquisitionMode === "lead_based" ? (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs font-semibold text-slate-700">
-                        Monthly Lead Volume
-                      </label>
+                      <label className="text-xs font-semibold text-slate-700">Monthly Lead Volume</label>
                       <input
                         type="number"
                         min={0}
                         value={monthlyLeads}
-                        onChange={(e) => setMonthlyLeads(parseInt(e.target.value, 10) || 0)}
+                        onChange={(e) => setMonthlyLeads(e.target.value)}
+                        placeholder="Enter monthly leads"
                         className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
@@ -695,22 +846,22 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                       <input
                         type="number"
                         step={0.005}
-                        min={0.001}
+                        min={0}
                         max={1}
                         value={leadConversionRate}
-                        onChange={(e) => setLeadConversionRate(parseFloat(e.target.value) || 0.01)}
+                        onChange={(e) => setLeadConversionRate(e.target.value)}
+                        placeholder="Enter conversion rate (e.g. 0.035)"
                         className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-700">
-                        Cost Per Lead ({currency})
-                      </label>
+                      <label className="text-xs font-semibold text-slate-700">Cost Per Lead ({currency})</label>
                       <input
                         type="number"
                         min={0}
                         value={costPerLead}
-                        onChange={(e) => setCostPerLead(parseInt(e.target.value, 10) || 0)}
+                        onChange={(e) => setCostPerLead(e.target.value)}
+                        placeholder="Enter cost per lead"
                         className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
@@ -718,26 +869,24 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-semibold text-slate-700">
-                        Monthly Acquisition Budget ({currency})
-                      </label>
+                      <label className="text-xs font-semibold text-slate-700">Monthly Marketing Spend ({currency})</label>
                       <input
                         type="number"
                         min={0}
                         value={acquisitionBudget}
-                        onChange={(e) => setAcquisitionBudget(parseInt(e.target.value, 10) || 0)}
+                        onChange={(e) => setAcquisitionBudget(e.target.value)}
+                        placeholder="Enter monthly acquisition budget"
                         className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-700">
-                        Target Blended CAC ({currency})
-                      </label>
+                      <label className="text-xs font-semibold text-slate-700">Target Blended CAC ({currency})</label>
                       <input
                         type="number"
-                        min={1}
+                        min={0}
                         value={targetCac}
-                        onChange={(e) => setTargetCac(parseInt(e.target.value, 10) || 1)}
+                        onChange={(e) => setTargetCac(e.target.value)}
+                        placeholder="Enter target acquisition cost"
                         className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
@@ -746,49 +895,46 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-slate-100 pt-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">
-                      Monthly Customer Churn Rate
-                    </label>
+                    <label className="text-xs font-semibold text-slate-700">Monthly Customer Churn Rate</label>
                     <input
                       type="number"
                       step={0.005}
                       min={0}
                       max={0.5}
                       value={churnRate}
-                      onChange={(e) => setChurnRate(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => setChurnRate(e.target.value)}
+                      placeholder="Enter churn rate (e.g. 0.025 = 2.5%)"
                       className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    <span className="text-[10px] text-slate-400 mt-1 block">e.g. 0.025 = 2.5% monthly attrition</span>
+                    <span className="text-[10px] text-slate-400 mt-1 block">e.g. 0.025 = 2.5% monthly customer churn</span>
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">
-                      Organic New Customers / Mo
-                    </label>
+                    <label className="text-xs font-semibold text-slate-700">Organic New Customers / Mo</label>
                     <input
                       type="number"
                       min={0}
                       value={organicCustomers}
-                      onChange={(e) => setOrganicCustomers(parseInt(e.target.value, 10) || 0)}
+                      onChange={(e) => setOrganicCustomers(e.target.value)}
+                      placeholder="Enter organic customer count"
                       className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    <span className="text-[10px] text-slate-400 mt-1 block">Word-of-mouth &amp; organic referrals</span>
+                    <span className="text-[10px] text-slate-400 mt-1 block">Word-of-mouth &amp; unpaid referrals</span>
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">
-                      Monthly Expansion Rate (Upsells)
-                    </label>
+                    <label className="text-xs font-semibold text-slate-700">Monthly Expansion Rate</label>
                     <input
                       type="number"
                       step={0.005}
                       min={0}
                       max={0.5}
                       value={expansionRate}
-                      onChange={(e) => setExpansionRate(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => setExpansionRate(e.target.value)}
+                      placeholder="Enter expansion rate (e.g. 0.015)"
                       className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    <span className="text-[10px] text-slate-400 mt-1 block">e.g. 0.015 = 1.5% net expansion</span>
+                    <span className="text-[10px] text-slate-400 mt-1 block">e.g. 0.015 = 1.5% net monthly upsell</span>
                   </div>
                 </div>
               </div>
@@ -801,74 +947,70 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
               <div className="space-y-1">
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <Briefcase className="h-5 w-5 text-emerald-600" />
-                  <span>Step 4: Operating Expenses &amp; Team Structure</span>
+                  <span>Step 4: Operating Expenses &amp; Team Payroll</span>
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Configure monthly payroll, fixed overheads, and variable delivery/hosting costs.
+                  Configure monthly payroll, fixed operational overheads, and variable delivery costs.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Total Monthly Team Payroll ({currency})
-                  </label>
+                  <label className="text-xs font-semibold text-slate-700">Total Monthly Team Payroll ({currency})</label>
                   <input
                     type="number"
                     min={0}
                     value={monthlyPayroll}
-                    onChange={(e) => setMonthlyPayroll(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    onChange={(e) => setMonthlyPayroll(e.target.value)}
+                    placeholder="Enter monthly team payroll"
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">Salaries + employer contributions for active staff</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Combined salaries + employer taxes for active operational team
+                  </span>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Fixed Monthly OpEx Overhead ({currency})
-                  </label>
+                  <label className="text-xs font-semibold text-slate-700">Fixed Monthly OpEx Overhead ({currency})</label>
                   <input
                     type="number"
                     min={0}
                     value={fixedOpex}
-                    onChange={(e) => setFixedOpex(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    onChange={(e) => setFixedOpex(e.target.value)}
+                    placeholder="Enter fixed monthly overhead"
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">Rent, software tooling, legal, accounting</span>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">
-                    Payment Processing Fee Rate
-                  </label>
+                  <label className="text-xs font-semibold text-slate-700">Payment Processing Fee Rate</label>
                   <input
                     type="number"
                     step={0.005}
                     min={0}
                     max={0.1}
                     value={paymentProcRate}
-                    onChange={(e) => setPaymentProcRate(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setPaymentProcRate(e.target.value)}
+                    placeholder="Enter fee rate (e.g. 0.025 = 2.5%)"
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">e.g. 0.025 = 2.5% for Stripe / Razorpay</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Gateway transaction rate (e.g. Stripe / Razorpay)</span>
                 </div>
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700">
-                    Variable COGS &amp; Cloud per Customer ({currency} / user / mo)
+                    Variable COGS &amp; Cloud per Account ({currency} / user / mo)
                   </label>
                   <input
                     type="number"
                     min={0}
-                    value={hostingPerCustomer + servicingPerCustomer}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10) || 0;
-                      setHostingPerCustomer(Math.round(val * 0.4));
-                      setServicingPerCustomer(Math.round(val * 0.6));
-                    }}
+                    value={variableCogs}
+                    onChange={(e) => setVariableCogs(e.target.value)}
+                    placeholder="Enter variable cloud & support cost"
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">Direct infrastructure, API calls &amp; support per active account</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Direct infrastructure, API calls &amp; support</span>
                 </div>
               </div>
 
@@ -876,10 +1018,12 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center justify-between text-xs">
                 <div>
                   <span className="text-slate-500 block text-[11px] font-medium">Estimated Monthly Operating Burn</span>
-                  <span className="text-sm font-extrabold text-rose-600">{formatCurrency(currentMonthlyBurnEstimate, currency, false)} / mo</span>
+                  <span className="text-sm font-extrabold text-rose-600">
+                    {formatCurrency(currentMonthlyBurnEstimate, currency, false)} / mo
+                  </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[11px] font-medium">Estimated Runway Buffer</span>
+                  <span className="text-slate-500 block text-[11px] font-medium">Estimated Net Runway</span>
                   <span className="text-sm font-extrabold text-emerald-700">{roughRunwayMonths}</span>
                 </div>
               </div>
@@ -900,15 +1044,17 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
               </div>
 
               <div className="space-y-3">
-                <label className="text-xs font-semibold text-slate-700">
-                  Select a Strategic Focus Preset:
-                </label>
+                <label className="text-xs font-semibold text-slate-700">Select a Strategic Focus Preset:</label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <button
                     type="button"
                     onClick={() => {
                       setDecisionPreset("target_arr");
-                      setDecisionGoalText(`Reach ${currency === "INR" ? "₹1 Crore" : "$1 Million"} ARR run rate within 12 months with ${currency === "INR" ? "₹25 Lakh" : "$300K"} cash budget.`);
+                      setDecisionGoalText(
+                        `Reach ${currency === "INR" ? "₹1 Crore" : "$1 Million"} ARR run rate within 12 months with ${
+                          currency === "INR" ? "₹25 Lakh" : "$300K"
+                        } cash budget.`
+                      );
                     }}
                     className={`rounded-xl border p-3 text-left transition-all text-xs ${
                       decisionPreset === "target_arr"
@@ -926,7 +1072,9 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                     type="button"
                     onClick={() => {
                       setDecisionPreset("break_even");
-                      setDecisionGoalText("Determine the exact customer count and CAC efficiency required to achieve operating break-even.");
+                      setDecisionGoalText(
+                        "Determine the exact customer count and CAC efficiency required to achieve operating break-even."
+                      );
                     }}
                     className={`rounded-xl border p-3 text-left transition-all text-xs ${
                       decisionPreset === "break_even"
@@ -944,7 +1092,9 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                     type="button"
                     onClick={() => {
                       setDecisionPreset("hiring");
-                      setDecisionGoalText("Can we afford to hire 2 software engineers in Q2 without breaching our minimum safety cash reserve?");
+                      setDecisionGoalText(
+                        "Can we expand operational payroll by 30% in Q2 without breaching our minimum safety cash reserve?"
+                      );
                     }}
                     className={`rounded-xl border p-3 text-left transition-all text-xs ${
                       decisionPreset === "hiring"
@@ -967,11 +1117,11 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                     rows={3}
                     value={decisionGoalText}
                     onChange={(e) => setDecisionGoalText(e.target.value)}
-                    placeholder="e.g. Reach ₹1.5 Crore ARR in 12 months with ₹30 Lakh budget while keeping ₹8 Lakh cash reserve."
+                    placeholder="Enter your strategic objective or target milestone..."
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
                   />
                   <span className="text-[11px] text-slate-400 mt-1 block">
-                    This decision will appear on your top dashboard banner, reverse-planning solver, and in the generated executive PDF brief.
+                    This decision will appear on your dashboard banner, reverse-planning solver, and in the generated executive PDF brief.
                   </span>
                 </div>
               </div>
@@ -990,13 +1140,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                 <span>Previous Step</span>
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={onSkipToDemo}
-                className="text-xs text-slate-400 hover:text-slate-700 transition-colors"
-              >
-                Cancel and use sample company
-              </button>
+              <div />
             )}
 
             {currentStep < 5 ? (
