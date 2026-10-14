@@ -75,9 +75,8 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
   const [paymentProcRate, setPaymentProcRate] = useState<string>("");
   const [variableCogs, setVariableCogs] = useState<string>("");
 
-  // Step 5: Strategic Milestone & Reverse-Planning Decision Goal
-  const [decisionPreset, setDecisionPreset] = useState<string>("target_arr");
-  const [decisionGoalText, setDecisionGoalText] = useState<string>("");
+  // Extracted decision goal from deck if present
+  const [extractedDecisionGoal, setExtractedDecisionGoal] = useState<string>(initialDecisionGoal || "");
 
   // Document/Deck Parser State
   const [showDocExtractor, setShowDocExtractor] = useState<boolean>(false);
@@ -187,7 +186,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
     if (data.fixed_opex !== undefined && data.fixed_opex !== null) {
       setFixedOpex(String(data.fixed_opex));
     }
-    if (data.decision_goal) setDecisionGoalText(data.decision_goal);
+    if (data.decision_goal) setExtractedDecisionGoal(data.decision_goal);
 
     const engineName = method === "gemini-2.5-flash" ? "Google Gemini 2.5 Flash" : "VentureIQ Document Parser";
     setExtractorNotification(`Successfully extracted ${count || "key"} financial parameters from ${sourceLabel} via ${engineName}.`);
@@ -272,7 +271,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
     const numConv = leadConversionRate ? Number(leadConversionRate) : 0.035;
     const numCostPerLead = Number(costPerLead) || 0;
     const numBudget = Number(acquisitionBudget) || 0;
-    const numTargetCac = Number(targetCac) || 0;
+    const numTargetCac = Number(targetCac) || (numCostPerLead > 0 && numConv > 0 ? Math.round(numCostPerLead / numConv) : 6000);
     const numOrganic = Number(organicCustomers) || 0;
     const numChurn = churnRate ? Number(churnRate) : 0.025;
     const numExpansion = expansionRate ? Number(expansionRate) : 0.015;
@@ -282,7 +281,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
     const numVariableCogs = Number(variableCogs) || 0;
 
     const goal =
-      decisionGoalText.trim() ||
+      extractedDecisionGoal.trim() ||
       `Reach ${currency === "INR" ? "₹1 Crore" : "$1 Million"} ARR run rate with sustainable cash runway.`;
 
     const updatedInputs: ModelEngineInputs = {
@@ -338,7 +337,6 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
     { num: 2, label: "Revenue & Base" },
     { num: 3, label: "Growth & Retention" },
     { num: 4, label: "Costs & Team" },
-    { num: 5, label: "Decision Goal" },
   ];
 
   // Dynamic calculations for preview
@@ -378,7 +376,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Answer 5 sections to build your live financial model &amp; reverse-planning solver
+              Answer 4 sections to build your live financial model &amp; strategic risk analysis
             </p>
           </div>
         </div>
@@ -494,7 +492,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
         )}
 
         {/* Step Progress Stepper */}
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {stepsList.map((s) => (
             <button
               key={s.num}
@@ -827,7 +825,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                 </div>
 
                 {acquisitionMode === "lead_based" ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
                       <label className="text-xs font-semibold text-slate-700">Monthly Lead Volume</label>
                       <input
@@ -865,6 +863,21 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                         className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700">Current Blended CAC ({currency})</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={targetCac}
+                        onChange={(e) => setTargetCac(e.target.value)}
+                        placeholder={
+                          Number(costPerLead) > 0 && Number(leadConversionRate) > 0
+                            ? `Est. ${Math.round(Number(costPerLead) / Number(leadConversionRate))}`
+                            : "Enter current CAC"
+                        }
+                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -880,14 +893,14 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-700">Target Blended CAC ({currency})</label>
+                      <label className="text-xs font-semibold text-slate-700">Current Blended CAC ({currency})</label>
                       <input
                         type="number"
                         min={0}
                         value={targetCac}
                         onChange={(e) => setTargetCac(e.target.value)}
-                        placeholder="Enter target acquisition cost"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="Enter current blended CAC"
+                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                   </div>
@@ -1030,104 +1043,6 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
             </div>
           )}
 
-          {/* STEP 5: Strategic Milestone & Reverse-Planning Objective */}
-          {currentStep === 5 && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              <div className="space-y-1">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <Target className="h-5 w-5 text-emerald-600" />
-                  <span>Step 5: Define Your Strategic Milestone Goal</span>
-                </h2>
-                <p className="text-xs text-slate-500">
-                  What core business milestone or financial decision should VentureIQ reverse-engineer and stress-test?
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-xs font-semibold text-slate-700">Select a Strategic Focus Preset:</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDecisionPreset("target_arr");
-                      setDecisionGoalText(
-                        `Reach ${currency === "INR" ? "₹1 Crore" : "$1 Million"} ARR run rate within 12 months with ${
-                          currency === "INR" ? "₹25 Lakh" : "$300K"
-                        } cash budget.`
-                      );
-                    }}
-                    className={`rounded-xl border p-3 text-left transition-all text-xs ${
-                      decisionPreset === "target_arr"
-                        ? "bg-emerald-50 border-emerald-500 text-emerald-950 font-bold"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="font-bold">ARR Target Milestone</div>
-                    <div className="text-[11px] text-slate-500 mt-1 font-normal">
-                      Reverse-engineer price, conversion, and marketing needed to hit 12-month ARR.
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDecisionPreset("break_even");
-                      setDecisionGoalText(
-                        "Determine the exact customer count and CAC efficiency required to achieve operating break-even."
-                      );
-                    }}
-                    className={`rounded-xl border p-3 text-left transition-all text-xs ${
-                      decisionPreset === "break_even"
-                        ? "bg-emerald-50 border-emerald-500 text-emerald-950 font-bold"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="font-bold">Operating Break-Even</div>
-                    <div className="text-[11px] text-slate-500 mt-1 font-normal">
-                      Find minimum paying volume to cover total payroll and overheads without external funding.
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDecisionPreset("hiring");
-                      setDecisionGoalText(
-                        "Can we expand operational payroll by 30% in Q2 without breaching our minimum safety cash reserve?"
-                      );
-                    }}
-                    className={`rounded-xl border p-3 text-left transition-all text-xs ${
-                      decisionPreset === "hiring"
-                        ? "bg-emerald-50 border-emerald-500 text-emerald-950 font-bold"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="font-bold">Headcount Expansion</div>
-                    <div className="text-[11px] text-slate-500 mt-1 font-normal">
-                      Test payroll capacity and runway safety before making new hires.
-                    </div>
-                  </button>
-                </div>
-
-                <div className="pt-2">
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Your Specific Strategic Decision Statement:
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={decisionGoalText}
-                    onChange={(e) => setDecisionGoalText(e.target.value)}
-                    placeholder="Enter your strategic objective or target milestone..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
-                  />
-                  <span className="text-[11px] text-slate-400 mt-1 block">
-                    This decision will appear on your dashboard banner, reverse-planning solver, and in the generated executive PDF brief.
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Stepper Navigation Buttons */}
           <div className="flex items-center justify-between border-t border-slate-100 pt-5">
             {currentStep > 1 ? (
@@ -1143,7 +1058,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
               <div />
             )}
 
-            {currentStep < 5 ? (
+            {currentStep < 4 ? (
               <button
                 type="button"
                 onClick={() => setCurrentStep(currentStep + 1)}

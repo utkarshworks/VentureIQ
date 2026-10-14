@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { EngineSimulationResult, ModelEngineInputs } from "@/types/model";
 import { MetricCard } from "@/components/MetricCard";
 import { formatCurrency, formatPercent, formatNumber, formatMonths } from "@/lib/formatters";
+import { SituationAnalysisRadar } from "@/features/SituationAnalysisRadar";
 import {
   AreaChart,
   Area,
@@ -113,6 +114,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ result, inputs }) =>
           statusType={summary.ltv_to_cac_ratio_final && summary.ltv_to_cac_ratio_final >= 3 ? "good" : "warning"}
         />
       </div>
+
+      {/* Current Situation Analysis & Health Radar (Good, Bad, Watchlist) */}
+      <SituationAnalysisRadar result={result} inputs={inputs} />
 
       {/* Visual Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
