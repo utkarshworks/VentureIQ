@@ -95,3 +95,29 @@ export function formatMonths(
   return `${months.toFixed(1)} mos`;
 }
 
+export function parseCommaSeparated(val: string): string {
+  if (!val) return "";
+  // Strip everything except digits and single decimal point
+  const cleaned = val.replace(/[^0-9.]/g, "");
+  const parts = cleaned.split(".");
+  if (parts.length > 2) {
+    return parts[0] + "." + parts.slice(1).join("");
+  }
+  return cleaned;
+}
+
+export function formatWithCommas(rawNum: string | number, currency: string = "INR"): string {
+  if (rawNum === "" || rawNum === null || rawNum === undefined) return "";
+  const str = String(rawNum).replace(/[^0-9.]/g, "");
+  if (!str) return "";
+  const [intPart, decPart] = str.split(".");
+  if (!intPart && decPart !== undefined) return `0.${decPart}`;
+
+  const num = Number(intPart);
+  if (isNaN(num)) return str;
+
+  const locale = currency === "INR" ? "en-IN" : "en-US";
+  const formattedInt = num.toLocaleString(locale);
+  return decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
+}
+

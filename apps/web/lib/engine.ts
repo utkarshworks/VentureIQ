@@ -24,7 +24,104 @@ function formatPeriod(startDateStr: string, offset: number): string {
   }
 }
 
+export function isModelEmpty(inputs: ModelEngineInputs): boolean {
+  if (!inputs) return true;
+  const numCust = Number(inputs.initial_paying_customers) || 0;
+  const numArpu = Number(inputs.arpu) || 0;
+  const numCash = Number(inputs.initial_cash_balance) || 0;
+  const numLeads = Number(inputs.monthly_leads) || 0;
+  const numBudget = Number(inputs.acquisition_budget) || 0;
+  const numPayroll =
+    inputs.hiring_roles && inputs.hiring_roles.length > 0
+      ? inputs.hiring_roles.reduce((acc, r) => acc + (r.monthly_salary || 0) * (r.headcount || 0), 0)
+      : 0;
+  const numFixedOpex = Number(inputs.fixed_opex) || 0;
+
+  return (
+    numCust === 0 &&
+    numArpu === 0 &&
+    numCash === 0 &&
+    numLeads === 0 &&
+    numBudget === 0 &&
+    numPayroll === 0 &&
+    numFixedOpex === 0
+  );
+}
+
 export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulationResult {
+  // If no data has been filled by the user, return an empty model with zero warnings and N/A values
+  if (isModelEmpty(inputs)) {
+    const emptyProjections: MonthlyProjection[] = [];
+    const horizon = inputs.planning_horizon || 12;
+    for (let m = 1; m <= horizon; m++) {
+      const period = formatPeriod(inputs.start_date || "2026-01-01", m - 1);
+      emptyProjections.push({
+        month_index: m,
+        period,
+        opening_customers: 0,
+        churned_customers: 0,
+        new_customers: 0,
+        closing_customers: 0,
+        avg_active_customers: 0,
+        base_mrr: 0,
+        expansion_mrr: 0,
+        contraction_mrr: 0,
+        mrr: 0,
+        arr_run_rate: 0,
+        payment_processing_cost: 0,
+        hosting_cost: 0,
+        servicing_cost: 0,
+        cogs: 0,
+        gross_profit: 0,
+        gross_margin_pct: 0,
+        contribution_margin: 0,
+        contribution_margin_pct: 0,
+        payroll_cost: 0,
+        acquisition_spend: 0,
+        fixed_opex: 0,
+        total_opex: 0,
+        operating_profit: 0,
+        beginning_cash: 0,
+        cash_inflows: 0,
+        cash_outflows: 0,
+        net_cash_flow: 0,
+        ending_cash: 0,
+        net_burn: 0,
+        blended_cac: null,
+        cac_payback_months: null,
+        simplified_ltv: null,
+        ltv_to_cac_ratio: null,
+        break_even_revenue: null,
+        is_cash_reserve_breached: false,
+        is_cash_negative: false,
+      });
+    }
+
+    return {
+      inputs,
+      projections: emptyProjections,
+      summary: {
+        final_month_mrr: 0,
+        final_month_arr: 0,
+        final_month_customers: 0,
+        peak_cash_deficit: 0,
+        min_cash_balance: 0,
+        ending_cash: 0,
+        runway_months: null,
+        runway_status: "No data entered",
+        break_even_month: null,
+        average_gross_margin_pct: 0,
+        average_contribution_margin_pct: 0,
+        blended_cac_final: null,
+        simplified_ltv_final: null,
+        ltv_to_cac_ratio_final: null,
+        cac_payback_final: null,
+        cohort_ltv_36m: null,
+      },
+      warnings: [],
+    };
+  }
+
   const projections: MonthlyProjection[] = [];
   const warnings: ModelWarning[] = [];
 
@@ -70,7 +167,7 @@ export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulatio
     const mrr = Math.round(rawMrr * 100) / 100;
     const arrRunRate = Math.round(mrr * 12 * 100) / 100;
 
-    // 3. COGS & Margins
+    // 3. COGS & Delivery
     const procRate = Math.max(0, Math.min(1, inputs.payment_processing_rate));
     const paymentProcessingCost = Math.round(mrr * procRate * 100) / 100;
     const hostingCost =
@@ -81,15 +178,7 @@ export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulatio
     const grossProfit = Math.round((mrr - cogs) * 100) / 100;
     const grossMarginPct = mrr > 0 ? grossProfit / mrr : 0;
 
-    const directVariableCosts =
-      paymentProcessingCost + avgActiveCustomers * inputs.hosting_cost_per_customer + servicingCost;
-    const contributionMargin = Math.round((mrr - directVariableCosts) * 100) / 100;
-    const contributionMarginPct = mrr > 0 ? contributionMargin / mrr : 0;
-
-    gmPercentages.push(grossMarginPct);
-    cmPercentages.push(contributionMarginPct);
-
-    // 4. OpEx & Payroll
+    // 4. OpEx & Payroll & Acquisition
     let payrollCost = 0;
     for (const role of inputs.hiring_roles) {
       if (m >= role.start_month) {
@@ -110,6 +199,15 @@ export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulatio
 
     const fixedOpex = Math.round(inputs.fixed_opex * 100) / 100;
     const totalOpex = Math.round((payrollCost + acqSpend + fixedOpex) * 100) / 100;
+
+    // Contribution Margin: Gross Profit minus variable acquisition spend
+    // Represents revenue available to cover fixed payroll and fixed overheads
+    const contributionMargin = Math.round((grossProfit - acqSpend) * 100) / 100;
+    const contributionMarginPct = mrr > 0 ? contributionMargin / mrr : 0;
+
+    gmPercentages.push(grossMarginPct);
+    cmPercentages.push(contributionMarginPct);
+
     const operatingProfit = Math.round((grossProfit - totalOpex) * 100) / 100;
 
     if (operatingProfit >= 0 && breakEvenMonth === null) {
@@ -259,15 +357,15 @@ export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulatio
     });
   }
 
-  if (avgCm <= 0) {
+  if (finalP.mrr > 0 && avgCm <= 0) {
     warnings.push({
       code: "NEGATIVE_UNIT_ECONOMICS",
-      message: "Average contribution margin is non-positive. Direct variable delivery costs exceed revenue per unit.",
+      message: "Average contribution margin is non-positive. Direct variable delivery and acquisition costs exceed revenue per unit.",
       severity: "critical",
     });
   }
 
-  if (inputs.customer_churn_rate > 0.1) {
+  if (inputs.initial_paying_customers > 0 && inputs.customer_churn_rate > 0.1) {
     warnings.push({
       code: "HIGH_CHURN",
       message: `Monthly customer churn rate is ${(inputs.customer_churn_rate * 100).toFixed(1)}%, representing severe attrition (> 10%/mo).`,

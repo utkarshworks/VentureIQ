@@ -29,6 +29,9 @@ import {
   HelpCircle,
 } from "lucide-react";
 
+import { FormattedNumberInput } from "@/components/FormattedNumberInput";
+import { PercentageInput } from "@/components/PercentageInput";
+
 interface CompanyAssessmentWizardProps {
   initialInputs: ModelEngineInputs;
   initialDecisionGoal: string;
@@ -45,7 +48,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
   // Step 1: Company Profile, Industry, Funding & Horizon
   const [companyName, setCompanyName] = useState<string>("");
   const [profileType, setProfileType] = useState<"B2B" | "B2C" | "D2C">("B2B");
-  const [businessType, setBusinessType] = useState<string>("SaaS");
+  const [businessType, setBusinessType] = useState<string>("");
   const [fundingStructure, setFundingStructure] = useState<"bootstrapped" | "funded">("bootstrapped");
   const [fundingStage, setFundingStage] = useState<string>("seed");
   const [businessModelArch, setBusinessModelArch] = useState<string>("recurring_saas");
@@ -63,8 +66,9 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
   const [monthlyLeads, setMonthlyLeads] = useState<string>("");
   const [leadConversionRate, setLeadConversionRate] = useState<string>("");
   const [costPerLead, setCostPerLead] = useState<string>("");
-  const [acquisitionBudget, setAcquisitionBudget] = useState<string>("");
+  const [currentCac, setCurrentCac] = useState<string>("");
   const [targetCac, setTargetCac] = useState<string>("");
+  const [acquisitionBudget, setAcquisitionBudget] = useState<string>("");
   const [organicCustomers, setOrganicCustomers] = useState<string>("");
   const [churnRate, setChurnRate] = useState<string>("");
   const [expansionRate, setExpansionRate] = useState<string>("");
@@ -85,14 +89,13 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
   const [extractorNotification, setExtractorNotification] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Business Type Options
+  // Business Type Options in requested order: SaaS, IT & Tech Services, Mobile App, Consumer Product, D2C, Other
   const businessTypes = [
     { id: "SaaS", label: "SaaS" },
     { id: "IT & Tech Services", label: "IT & Tech Services" },
-    { id: "Consumer Product", label: "Consumer Product" },
     { id: "Mobile App", label: "Mobile App" },
-    { id: "E-Commerce / D2C Brand", label: "E-Commerce / D2C" },
-    { id: "AI & DeepTech", label: "AI & DeepTech" },
+    { id: "Consumer Product", label: "Consumer Product" },
+    { id: "D2C", label: "D2C" },
     { id: "Other", label: "Other" },
   ];
 
@@ -115,25 +118,9 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
     { id: "angel_grants", label: "Angel / Grants" },
   ];
 
-  // 1-Click Profile Selection (B2B, B2C, D2C)
+  // Profile Selection: Only sets profile type, no auto-selection of business type and no popup notification
   const handleSelectProfileType = (type: "B2B" | "B2C" | "D2C") => {
     setProfileType(type);
-    if (type === "B2B") {
-      setBusinessType("SaaS");
-      setBusinessModelArch("recurring_saas");
-      setAcquisitionMode("lead_based");
-      setExtractorNotification("Profile configured for B2B Enterprise / SaaS.");
-    } else if (type === "B2C") {
-      setBusinessType("Mobile App");
-      setBusinessModelArch("recurring_saas");
-      setAcquisitionMode("budget_based");
-      setExtractorNotification("Profile configured for B2C Consumer Subscription.");
-    } else {
-      setBusinessType("E-Commerce / D2C Brand");
-      setBusinessModelArch("d2c_retention");
-      setAcquisitionMode("budget_based");
-      setExtractorNotification("Profile configured for Direct-to-Consumer (D2C).");
-    }
   };
 
   // Populate wizard from parsed payload
@@ -172,7 +159,11 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
     if (data.acquisition_budget !== undefined && data.acquisition_budget !== null) {
       setAcquisitionBudget(String(data.acquisition_budget));
     }
-    if (data.target_cac !== undefined && data.target_cac !== null) setTargetCac(String(data.target_cac));
+    if (data.current_cac !== undefined && data.current_cac !== null) setCurrentCac(String(data.current_cac));
+    if (data.target_cac !== undefined && data.target_cac !== null) {
+      setTargetCac(String(data.target_cac));
+      if (!data.current_cac) setCurrentCac(String(data.target_cac));
+    }
     if (data.customer_churn_rate !== undefined && data.customer_churn_rate !== null) {
       setChurnRate(String(data.customer_churn_rate));
     }
@@ -265,34 +256,37 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
     const numCustomers = Number(customers) || 0;
     const numArpu = Number(arpu) || 0;
     const numCash = Number(cashBalance) || 0;
-    const numMinReserve = minReserve ? Number(minReserve) : Math.round(numCash * 0.2);
+    const numMinReserve = minReserve ? Number(minReserve) : 0;
 
     const numLeads = Number(monthlyLeads) || 0;
-    const numConv = leadConversionRate ? Number(leadConversionRate) : 0.035;
+    const numConv = leadConversionRate ? Number(leadConversionRate) : 0;
     const numCostPerLead = Number(costPerLead) || 0;
     const numBudget = Number(acquisitionBudget) || 0;
-    const numTargetCac = Number(targetCac) || (numCostPerLead > 0 && numConv > 0 ? Math.round(numCostPerLead / numConv) : 6000);
+    const numCurrentCac = Number(currentCac) || 0;
+    const numTargetCac = Number(targetCac) || numCurrentCac || 0;
     const numOrganic = Number(organicCustomers) || 0;
-    const numChurn = churnRate ? Number(churnRate) : 0.025;
-    const numExpansion = expansionRate ? Number(expansionRate) : 0.015;
+    const numChurn = churnRate ? Number(churnRate) : 0;
+    const numExpansion = expansionRate ? Number(expansionRate) : 0;
 
     const numFixedOpex = Number(fixedOpex) || 0;
-    const numProcRate = paymentProcRate ? Number(paymentProcRate) : 0.025;
+    const numProcRate = paymentProcRate ? Number(paymentProcRate) : 0;
     const numVariableCogs = Number(variableCogs) || 0;
 
     const goal =
       extractedDecisionGoal.trim() ||
-      `Reach ${currency === "INR" ? "₹1 Crore" : "$1 Million"} ARR run rate with sustainable cash runway.`;
+      (numArpu > 0
+        ? `Reach ${currency === "INR" ? "₹1 Crore" : "$1 Million"} ARR run rate with sustainable cash runway.`
+        : "Establish venture baseline financial model & runway.");
 
     const updatedInputs: ModelEngineInputs = {
       ...initialInputs,
       company_name: companyName.trim() || "My Venture",
       business_model: selectedModel as BusinessModelType,
       currency,
-      planning_horizon: Number(planningHorizon) || 12,
+      planning_horizon: 12,
 
       initial_paying_customers: numCustomers,
-      arpu: numArpu > 0 ? numArpu : 1,
+      arpu: numArpu,
       initial_cash_balance: numCash,
       minimum_cash_reserve: numMinReserve,
 
@@ -301,15 +295,18 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
       lead_conversion_rate: numConv,
       cost_per_lead: numCostPerLead,
       acquisition_budget: numBudget,
-      target_cac: numTargetCac > 0 ? numTargetCac : 1,
+      target_cac: numTargetCac,
       organic_new_customers: numOrganic,
       customer_churn_rate: numChurn,
       expansion_rate: numExpansion,
 
       fixed_opex: numFixedOpex,
       payment_processing_rate: numProcRate,
+      hosting_fixed_cost: numCustomers > 0 || numArpu > 0 ? (initialInputs.hosting_fixed_cost || 0) : 0,
       hosting_cost_per_customer: Math.round(numVariableCogs * 0.4),
       servicing_cost_per_customer: Math.round(numVariableCogs * 0.6),
+      fixed_marketing_ops: 0,
+      contraction_rate: 0,
 
       // Model active team payroll as a unified operational organizational unit
       hiring_roles:
@@ -648,7 +645,7 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                 </div>
 
                 {/* Operating Currency */}
-                <div>
+                <div className="sm:col-span-2">
                   <label className="text-xs font-semibold text-slate-700">Operating Currency</label>
                   <div className="mt-1.5 grid grid-cols-4 gap-1.5">
                     {(["INR", "USD", "EUR", "GBP"] as CurrencyCode[]).map((c) => (
@@ -663,27 +660,6 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                         }`}
                       >
                         {c === "INR" ? "₹ INR" : c === "USD" ? "$ USD" : c === "EUR" ? "€ EUR" : "£ GBP"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Planning Horizon */}
-                <div>
-                  <label className="text-xs font-semibold text-slate-700">Simulation Horizon</label>
-                  <div className="mt-1.5 grid grid-cols-4 gap-1.5">
-                    {[12, 18, 24, 36].map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setPlanningHorizon(m)}
-                        className={`rounded-xl py-2.5 text-xs font-semibold transition-all border ${
-                          planningHorizon === m
-                            ? "bg-emerald-600 text-white border-emerald-600 font-bold shadow-sm"
-                            : "bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300"
-                        }`}
-                      >
-                        {m} Mos
                       </button>
                     ))}
                   </div>
@@ -708,14 +684,13 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Current Paying Customers (Accounts)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={customers}
-                    onChange={(e) => setCustomers(e.target.value)}
-                    placeholder="Enter paying customer count"
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <div className="mt-1.5">
+                    <FormattedNumberInput
+                      value={customers}
+                      onChange={setCustomers}
+                      placeholder="Enter paying customer count"
+                    />
+                  </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">Active recurring subscription or paying clients</span>
                 </div>
 
@@ -723,40 +698,43 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                   <label className="text-xs font-semibold text-slate-700">
                     Monthly Price / ARPU ({currency} / user / month)
                   </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={arpu}
-                    onChange={(e) => setArpu(e.target.value)}
-                    placeholder="Enter monthly price per customer"
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <div className="mt-1.5">
+                    <FormattedNumberInput
+                      isCurrency={true}
+                      currency={currency}
+                      value={arpu}
+                      onChange={setArpu}
+                      placeholder="Enter monthly price per customer"
+                    />
+                  </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">Average revenue generated per paying account monthly</span>
                 </div>
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Current Bank Cash Balance ({currency})</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={cashBalance}
-                    onChange={(e) => setCashBalance(e.target.value)}
-                    placeholder="Enter liquid bank cash"
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <div className="mt-1.5">
+                    <FormattedNumberInput
+                      isCurrency={true}
+                      currency={currency}
+                      value={cashBalance}
+                      onChange={setCashBalance}
+                      placeholder="Enter liquid bank cash"
+                    />
+                  </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">Total available operating treasury funds</span>
                 </div>
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Minimum Safety Reserve Floor ({currency})</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={minReserve}
-                    onChange={(e) => setMinReserve(e.target.value)}
-                    placeholder="Enter safety reserve floor"
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <div className="mt-1.5">
+                    <FormattedNumberInput
+                      isCurrency={true}
+                      currency={currency}
+                      value={minReserve}
+                      onChange={setMinReserve}
+                      placeholder="Enter safety reserve floor"
+                    />
+                  </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">Threshold below which VentureIQ flags solvency alerts</span>
                 </div>
               </div>
@@ -825,129 +803,141 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
                 </div>
 
                 {acquisitionMode === "lead_based" ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <div>
                       <label className="text-xs font-semibold text-slate-700">Monthly Lead Volume</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={monthlyLeads}
-                        onChange={(e) => setMonthlyLeads(e.target.value)}
-                        placeholder="Enter monthly leads"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                      <div className="mt-1.5">
+                        <FormattedNumberInput
+                          value={monthlyLeads}
+                          onChange={setMonthlyLeads}
+                          placeholder="Enter monthly leads"
+                        />
+                      </div>
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-700">
-                        Lead Conversion Rate (e.g. 0.035 = 3.5%)
-                      </label>
-                      <input
-                        type="number"
-                        step={0.005}
-                        min={0}
-                        max={1}
+                      <PercentageInput
+                        label="Lead Conversion Rate"
                         value={leadConversionRate}
-                        onChange={(e) => setLeadConversionRate(e.target.value)}
-                        placeholder="Enter conversion rate (e.g. 0.035)"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        onChange={setLeadConversionRate}
+                        placeholderPercent="e.g. 3.5%"
+                        placeholderDecimal="e.g. 0.035"
                       />
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-slate-700">Cost Per Lead ({currency})</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={costPerLead}
-                        onChange={(e) => setCostPerLead(e.target.value)}
-                        placeholder="Enter cost per lead"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                      <div className="mt-1.5">
+                        <FormattedNumberInput
+                          isCurrency={true}
+                          currency={currency}
+                          value={costPerLead}
+                          onChange={setCostPerLead}
+                          placeholder="Enter cost per lead"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-slate-700">Current Blended CAC ({currency})</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={targetCac}
-                        onChange={(e) => setTargetCac(e.target.value)}
-                        placeholder={
-                          Number(costPerLead) > 0 && Number(leadConversionRate) > 0
-                            ? `Est. ${Math.round(Number(costPerLead) / Number(leadConversionRate))}`
-                            : "Enter current CAC"
-                        }
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                      <div className="mt-1.5">
+                        <FormattedNumberInput
+                          isCurrency={true}
+                          currency={currency}
+                          value={currentCac}
+                          onChange={setCurrentCac}
+                          placeholder={
+                            Number(costPerLead) > 0 && Number(leadConversionRate) > 0
+                              ? `Est. ${Math.round(Number(costPerLead) / Number(leadConversionRate))}`
+                              : "Enter current CAC"
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700">Target CAC ({currency})</label>
+                      <div className="mt-1.5">
+                        <FormattedNumberInput
+                          isCurrency={true}
+                          currency={currency}
+                          value={targetCac}
+                          onChange={setTargetCac}
+                          placeholder="Enter target CAC"
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="text-xs font-semibold text-slate-700">Monthly Marketing Spend ({currency})</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={acquisitionBudget}
-                        onChange={(e) => setAcquisitionBudget(e.target.value)}
-                        placeholder="Enter monthly acquisition budget"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                      <div className="mt-1.5">
+                        <FormattedNumberInput
+                          isCurrency={true}
+                          currency={currency}
+                          value={acquisitionBudget}
+                          onChange={setAcquisitionBudget}
+                          placeholder="Enter monthly acquisition budget"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-slate-700">Current Blended CAC ({currency})</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={targetCac}
-                        onChange={(e) => setTargetCac(e.target.value)}
-                        placeholder="Enter current blended CAC"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                      <div className="mt-1.5">
+                        <FormattedNumberInput
+                          isCurrency={true}
+                          currency={currency}
+                          value={currentCac}
+                          onChange={setCurrentCac}
+                          placeholder="Enter current blended CAC"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700">Target CAC ({currency})</label>
+                      <div className="mt-1.5">
+                        <FormattedNumberInput
+                          isCurrency={true}
+                          currency={currency}
+                          value={targetCac}
+                          onChange={setTargetCac}
+                          placeholder="Enter target CAC"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-slate-100 pt-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Monthly Customer Churn Rate</label>
-                    <input
-                      type="number"
-                      step={0.005}
-                      min={0}
-                      max={0.5}
+                    <PercentageInput
+                      label="Monthly Customer Churn Rate"
                       value={churnRate}
-                      onChange={(e) => setChurnRate(e.target.value)}
-                      placeholder="Enter churn rate (e.g. 0.025 = 2.5%)"
-                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      onChange={setChurnRate}
+                      placeholderPercent="e.g. 2.5%"
+                      placeholderDecimal="e.g. 0.025"
+                      helperText="Monthly percentage of customers lost"
                     />
-                    <span className="text-[10px] text-slate-400 mt-1 block">e.g. 0.025 = 2.5% monthly customer churn</span>
                   </div>
 
                   <div>
                     <label className="text-xs font-semibold text-slate-700">Organic New Customers / Mo</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={organicCustomers}
-                      onChange={(e) => setOrganicCustomers(e.target.value)}
-                      placeholder="Enter organic customer count"
-                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
+                    <div className="mt-1.5">
+                      <FormattedNumberInput
+                        value={organicCustomers}
+                        onChange={setOrganicCustomers}
+                        placeholder="Enter organic customer count"
+                      />
+                    </div>
                     <span className="text-[10px] text-slate-400 mt-1 block">Word-of-mouth &amp; unpaid referrals</span>
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Monthly Expansion Rate</label>
-                    <input
-                      type="number"
-                      step={0.005}
-                      min={0}
-                      max={0.5}
+                    <PercentageInput
+                      label="Monthly Expansion Rate"
                       value={expansionRate}
-                      onChange={(e) => setExpansionRate(e.target.value)}
-                      placeholder="Enter expansion rate (e.g. 0.015)"
-                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      onChange={setExpansionRate}
+                      placeholderPercent="e.g. 1.5%"
+                      placeholderDecimal="e.g. 0.015"
+                      helperText="Net monthly upsell / expansion"
                     />
-                    <span className="text-[10px] text-slate-400 mt-1 block">e.g. 0.015 = 1.5% net monthly upsell</span>
                   </div>
                 </div>
               </div>
@@ -970,14 +960,15 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Total Monthly Team Payroll ({currency})</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={monthlyPayroll}
-                    onChange={(e) => setMonthlyPayroll(e.target.value)}
-                    placeholder="Enter monthly team payroll"
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <div className="mt-1.5">
+                    <FormattedNumberInput
+                      isCurrency={true}
+                      currency={currency}
+                      value={monthlyPayroll}
+                      onChange={setMonthlyPayroll}
+                      placeholder="Enter monthly team payroll"
+                    />
+                  </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">
                     Combined salaries + employer taxes for active operational team
                   </span>
@@ -985,44 +976,42 @@ export const CompanyAssessmentWizard: React.FC<CompanyAssessmentWizardProps> = (
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Fixed Monthly OpEx Overhead ({currency})</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={fixedOpex}
-                    onChange={(e) => setFixedOpex(e.target.value)}
-                    placeholder="Enter fixed monthly overhead"
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <div className="mt-1.5">
+                    <FormattedNumberInput
+                      isCurrency={true}
+                      currency={currency}
+                      value={fixedOpex}
+                      onChange={setFixedOpex}
+                      placeholder="Enter fixed monthly overhead"
+                    />
+                  </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">Rent, software tooling, legal, accounting</span>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">Payment Processing Fee Rate</label>
-                  <input
-                    type="number"
-                    step={0.005}
-                    min={0}
-                    max={0.1}
+                  <PercentageInput
+                    label="Payment Processing Fee Rate"
                     value={paymentProcRate}
-                    onChange={(e) => setPaymentProcRate(e.target.value)}
-                    placeholder="Enter fee rate (e.g. 0.025 = 2.5%)"
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    onChange={setPaymentProcRate}
+                    placeholderPercent="e.g. 2.5%"
+                    placeholderDecimal="e.g. 0.025"
+                    helperText="Gateway transaction fee (e.g. Stripe / Razorpay)"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">Gateway transaction rate (e.g. Stripe / Razorpay)</span>
                 </div>
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700">
                     Variable COGS &amp; Cloud per Account ({currency} / user / mo)
                   </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={variableCogs}
-                    onChange={(e) => setVariableCogs(e.target.value)}
-                    placeholder="Enter variable cloud & support cost"
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <div className="mt-1.5">
+                    <FormattedNumberInput
+                      isCurrency={true}
+                      currency={currency}
+                      value={variableCogs}
+                      onChange={setVariableCogs}
+                      placeholder="Enter variable cloud & support cost"
+                    />
+                  </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">Direct infrastructure, API calls &amp; support</span>
                 </div>
               </div>

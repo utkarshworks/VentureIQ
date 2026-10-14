@@ -66,11 +66,21 @@ describe("UI Components", () => {
     expect(screen.getByText("Type of Business / Industry")).toBeDefined();
     expect(screen.getByText("Funding Structure")).toBeDefined();
     expect(screen.getByText("Operating Currency")).toBeDefined();
-    expect(screen.getByText("Simulation Horizon")).toBeDefined();
+    // Simulation Horizon was removed as requested
+    expect(screen.queryByText("Simulation Horizon")).toBeNull();
+    // Business Types in requested order: SaaS, IT & Tech Services, Mobile App, Consumer Product, D2C, Other
+    expect(screen.getByText("SaaS")).toBeDefined();
+    expect(screen.getByText("IT & Tech Services")).toBeDefined();
+    expect(screen.getByText("Mobile App")).toBeDefined();
+    expect(screen.getByText("Consumer Product")).toBeDefined();
+    expect(screen.getAllByText("D2C").length).toBe(2);
+    expect(screen.getByText("Other")).toBeDefined();
+    // AI & DeepTech removed
+    expect(screen.queryByText("AI & DeepTech")).toBeNull();
     expect(screen.getByText("Continue to Step 02")).toBeDefined();
   });
 
-  it("navigates through the 4-step wizard, verifies Current Blended CAC in Step 3, and completes at Step 4", async () => {
+  it("navigates through the 4-step wizard, verifies Current Blended CAC and Target CAC in Step 3, and completes at Step 4", async () => {
     const { CompanyAssessmentWizard } = await import("@/features/CompanyAssessmentWizard");
     const { DEFAULT_SAAS_MODEL } = await import("@/lib/defaultModel");
     const { fireEvent } = await import("@testing-library/react");
@@ -96,18 +106,19 @@ describe("UI Components", () => {
     // Step 2 -> Step 3
     fireEvent.click(screen.getByText("Continue to Step 03"));
     expect(screen.getByText("Step 3: Growth Engine, CAC & Churn Dynamics")).toBeDefined();
-    // Verify Current Blended CAC field is rendered in Step 3
+    // Verify Current Blended CAC and Target CAC fields are rendered in Step 3
     expect(screen.getByText("Current Blended CAC (INR)")).toBeDefined();
+    expect(screen.getByText("Target CAC (INR)")).toBeDefined();
 
     // Step 3 -> Step 4
     fireEvent.click(screen.getByText("Continue to Step 04"));
     expect(screen.getByText("Step 4: Operating Expenses & Team Payroll")).toBeDefined();
 
-    // Verify Step 4 has the final submit button instead of Step 5
+    // Verify Step 4 has the final submit button
     const submitBtn = screen.getByText("Build Financial Engine & Open Dashboard");
     expect(submitBtn).toBeDefined();
 
-    // Click submit
+    // Click submit with empty fields -> should submit cleanly with zeroed inputs
     fireEvent.click(submitBtn);
     expect(completed).toBe(true);
     expect(submittedInputs).toBeDefined();
@@ -130,6 +141,65 @@ describe("UI Components", () => {
     // Filter to Good signals
     fireEvent.click(screen.getByText(/🟢 Good/));
     expect(screen.getByText("Fully Funded & Solvent Operating Runway")).toBeDefined();
+  });
+
+  it("renders empty model on dashboard with N/A values, zero warnings, and no good/bad triggers", async () => {
+    const { isModelEmpty, simulateModelLocally } = await import("@/lib/engine");
+    const { OverviewView } = await import("@/features/OverviewView");
+    const { SituationAnalysisRadar } = await import("@/features/SituationAnalysisRadar");
+
+    const emptyInputs: any = {
+      company_name: "Blank Startup",
+      business_model: "b2b_saas",
+      currency: "INR",
+      start_date: "2026-01",
+      planning_horizon: 12,
+      initial_paying_customers: 0,
+      initial_cash_balance: 0,
+      minimum_cash_reserve: 0,
+      arpu: 0,
+      expansion_rate: 0,
+      contraction_rate: 0,
+      customer_churn_rate: 0,
+      acquisition_mode: "lead_based",
+      monthly_leads: 0,
+      lead_conversion_rate: 0,
+      cost_per_lead: 0,
+      acquisition_budget: 0,
+      target_cac: 0,
+      organic_new_customers: 0,
+      fixed_marketing_ops: 0,
+      payment_processing_rate: 0,
+      hosting_fixed_cost: 0,
+      hosting_cost_per_customer: 0,
+      servicing_cost_per_customer: 0,
+      fixed_opex: 0,
+      hiring_roles: [],
+      financing_events: [],
+      cash_collection_rate: 1.0,
+    };
+
+    expect(isModelEmpty(emptyInputs)).toBe(true);
+
+    const result = simulateModelLocally(emptyInputs);
+    expect(result.warnings.length).toBe(0);
+
+    // Test SituationAnalysisRadar empty state
+    const { unmount: unmountRadar } = render(<SituationAnalysisRadar result={result} inputs={emptyInputs} />);
+    expect(screen.getByText("Current Situation Analysis: Awaiting Financial Data")).toBeDefined();
+    expect(screen.getByText("Status: All metrics N/A • Zero triggers active")).toBeDefined();
+    expect(screen.queryByText(/🟢 Good/)).toBeNull();
+    expect(screen.queryByText(/🔴 High Risk/)).toBeNull();
+    unmountRadar();
+
+    // Test OverviewView empty state
+    render(<OverviewView result={result} inputs={emptyInputs} />);
+    // Verify "No Data" badges
+    const noDataBadges = screen.getAllByText("No Data");
+    expect(noDataBadges.length).toBeGreaterThanOrEqual(8);
+    // Verify placeholders
+    expect(screen.getByText("Trajectory Visualizations Awaiting Baseline")).toBeDefined();
+    expect(screen.getByText("No financial projections to display. Complete the assessment or input your company figures to generate audited monthly balance sheet and P&L schedules.")).toBeDefined();
   });
 });
 

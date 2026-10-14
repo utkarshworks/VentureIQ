@@ -16,6 +16,8 @@ import {
   Zap,
 } from "lucide-react";
 
+import { isModelEmpty } from "@/lib/engine";
+
 interface SignalItem {
   id: string;
   type: "good" | "bad" | "warning";
@@ -39,46 +41,81 @@ export const SituationAnalysisRadar: React.FC<SituationAnalysisRadarProps> = ({
   const { summary, projections } = result;
   const curr = inputs.currency;
 
+  // Requirement: if no data is filled by user in any field, show nothing on dashboard, all thing as N/A no flags no triggers no good no bad
+  if (isModelEmpty(inputs)) {
+    return (
+      <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center space-y-3 shadow-sm">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 mx-auto">
+          <ShieldAlert className="h-6 w-6 text-slate-400" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-sm font-bold text-slate-800">
+            Current Situation Analysis: Awaiting Financial Data
+          </h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            No company metrics have been entered yet. Complete the assessment or input your venture numbers in the Model Editor to generate live solvency diagnostics, health triggers, and CFO recommendations.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500">
+          <span>Status: All metrics N/A • Zero triggers active</span>
+        </div>
+      </div>
+    );
+  }
+
   const signals: SignalItem[] = [];
 
   // 1. Capital & Runway Evaluation
-  const isSolvent = summary.ending_cash >= inputs.minimum_cash_reserve && summary.runway_months === null;
-  const isReserveBreached = summary.ending_cash < inputs.minimum_cash_reserve || summary.runway_months !== null;
+  const hasCash = (inputs.initial_cash_balance || 0) > 0;
+  const hasOutflows = projections.some((p) => p.cash_outflows > 0);
 
-  if (isReserveBreached) {
+  if (hasCash) {
+    const isReserveBreached = summary.ending_cash < inputs.minimum_cash_reserve || summary.runway_months !== null;
+    if (isReserveBreached) {
+      signals.push({
+        id: "runway_breach",
+        type: "bad",
+        category: "Capital & Runway",
+        title: "Safety Cash Reserve Breached",
+        metricValue: summary.runway_months ? `Month ${summary.runway_months}` : "Deficit",
+        summary: `Projected cash balance drops below your safety floor (${formatCurrency(
+          inputs.minimum_cash_reserve,
+          curr,
+          true
+        )}). Operations risk severe insolvency under current burn rate.`,
+        recommendation: `Extend runway by trimming non-essential OpEx or securing bridge capital before Month ${
+          summary.runway_months ?? 1
+        }.`,
+      });
+    } else {
+      signals.push({
+        id: "runway_solvent",
+        type: "good",
+        category: "Capital & Runway",
+        title: "Fully Funded & Solvent Operating Runway",
+        metricValue: `> ${inputs.planning_horizon} Months`,
+        summary: `Ending liquid treasury (${formatCurrency(
+          summary.ending_cash,
+          curr,
+          true
+        )}) comfortably exceeds minimum safety reserve (${formatCurrency(
+          inputs.minimum_cash_reserve,
+          curr,
+          true
+        )}) through the full simulation.`,
+        recommendation:
+          "Operations are capital-stable; you have autonomy to reinvest operating cash flow into growth without emergency dilution pressure.",
+      });
+    }
+  } else if (hasOutflows) {
     signals.push({
-      id: "runway_breach",
+      id: "runway_zero_cash",
       type: "bad",
       category: "Capital & Runway",
-      title: "Safety Cash Reserve Breached",
-      metricValue: summary.runway_months ? `Month ${summary.runway_months}` : "Deficit",
-      summary: `Projected cash balance drops below your safety floor (${formatCurrency(
-        inputs.minimum_cash_reserve,
-        curr,
-        true
-      )}). Operations risk severe insolvency under current burn rate.`,
-      recommendation: `Extend runway by trimming non-essential OpEx or securing bridge capital before Month ${
-        summary.runway_months ?? 1
-      }.`,
-    });
-  } else {
-    signals.push({
-      id: "runway_solvent",
-      type: "good",
-      category: "Capital & Runway",
-      title: "Fully Funded & Solvent Operating Runway",
-      metricValue: `> ${inputs.planning_horizon} Months`,
-      summary: `Ending liquid treasury (${formatCurrency(
-        summary.ending_cash,
-        curr,
-        true
-      )}) comfortably exceeds minimum safety reserve (${formatCurrency(
-        inputs.minimum_cash_reserve,
-        curr,
-        true
-      )}) through the full simulation.`,
-      recommendation:
-        "Operations are capital-stable; you have autonomy to reinvest operating cash flow into growth without emergency dilution pressure.",
+      title: "Zero Operating Cash Treasury",
+      metricValue: "0 Cash",
+      summary: "Your venture has active monthly cash outflows but zero initial liquid cash balance recorded.",
+      recommendation: "Record initial cash treasury reserves or model imminent financing events to ensure solvency.",
     });
   }
 
@@ -120,36 +157,38 @@ export const SituationAnalysisRadar: React.FC<SituationAnalysisRadarProps> = ({
     }
   }
 
-  // 3. Gross Margin Evaluation
-  if (summary.average_gross_margin_pct >= 0.75) {
-    signals.push({
-      id: "margin_high",
-      type: "good",
-      category: "Unit Economics",
-      title: "Superior Gross Margin (> 75%)",
-      metricValue: `${(summary.average_gross_margin_pct * 100).toFixed(1)}%`,
-      summary: `Direct cloud hosting, payment processing, and variable servicing absorb only ${(
-        (1 - summary.average_gross_margin_pct) *
-        100
-      ).toFixed(1)}% of revenue.`,
-      recommendation:
-        "High gross margin yields strong operating gross profit to support team payroll and marketing.",
-    });
-  } else if (summary.average_gross_margin_pct < 0.6) {
-    signals.push({
-      id: "margin_low",
-      type: "bad",
-      category: "Unit Economics",
-      title: "High Delivery Cost / Compressed Gross Margin",
-      metricValue: `${(summary.average_gross_margin_pct * 100).toFixed(1)}%`,
-      summary: `Variable hosting and direct costs consume over 40% of customer receipts, putting downward pressure on contribution margin.`,
-      recommendation:
-        "Audit cloud infrastructure efficiency, renegotiate third-party API costs, and verify unit pricing tiers.",
-    });
+  // 3. Gross Margin Evaluation (only if business has active revenue)
+  if (summary.final_month_mrr > 0) {
+    if (summary.average_gross_margin_pct >= 0.75) {
+      signals.push({
+        id: "margin_high",
+        type: "good",
+        category: "Unit Economics",
+        title: "Superior Gross Margin (> 75%)",
+        metricValue: `${(summary.average_gross_margin_pct * 100).toFixed(1)}%`,
+        summary: `Direct cloud hosting, payment processing, and variable servicing absorb only ${(
+          (1 - summary.average_gross_margin_pct) *
+          100
+        ).toFixed(1)}% of revenue.`,
+        recommendation:
+          "High gross margin yields strong operating gross profit to support team payroll and marketing.",
+      });
+    } else if (summary.average_gross_margin_pct < 0.6) {
+      signals.push({
+        id: "margin_low",
+        type: "bad",
+        category: "Unit Economics",
+        title: "High Delivery Cost / Compressed Gross Margin",
+        metricValue: `${(summary.average_gross_margin_pct * 100).toFixed(1)}%`,
+        summary: `Variable hosting and direct costs consume over 40% of customer receipts, putting downward pressure on contribution margin.`,
+        recommendation:
+          "Audit cloud infrastructure efficiency, renegotiate third-party API costs, and verify unit pricing tiers.",
+      });
+    }
   }
 
-  // 4. CAC Payback Period Evaluation
-  if (summary.cac_payback_final !== null) {
+  // 4. CAC Payback Period Evaluation (only if payback is calculated and positive)
+  if (summary.cac_payback_final !== null && summary.cac_payback_final > 0) {
     if (summary.cac_payback_final <= 12) {
       signals.push({
         id: "payback_fast",
@@ -186,67 +225,71 @@ export const SituationAnalysisRadar: React.FC<SituationAnalysisRadarProps> = ({
     }
   }
 
-  // 5. Customer Retention & Churn Evaluation
-  if (inputs.customer_churn_rate <= 0.02) {
-    signals.push({
-      id: "churn_low",
-      type: "good",
-      category: "Retention & Churn",
-      title: "Strong Customer Retention (≤ 2.0% Churn)",
-      metricValue: `${(inputs.customer_churn_rate * 100).toFixed(1)}% / mo`,
-      summary: `Low monthly customer decay minimizes revenue leakage and lets organic and paid additions compound ARR.`,
-      recommendation:
-        "High customer retention makes this an opportune time to launch expansion tiers and cross-sells.",
-    });
-  } else if (inputs.customer_churn_rate >= 0.04) {
-    signals.push({
-      id: "churn_high",
-      type: "bad",
-      category: "Retention & Churn",
-      title: "Severe Customer Attrition (≥ 4.0% Churn)",
-      metricValue: `${(inputs.customer_churn_rate * 100).toFixed(1)}% / mo`,
-      summary: `Monthly attrition of ${(inputs.customer_churn_rate * 100).toFixed(
-        1
-      )}% leaks over 38% of your customer base annually, creating an expensive treadmill.`,
-      recommendation:
-        "Conduct customer retention audits and address onboarding friction before scaling acquisition spend.",
-    });
-  } else {
-    signals.push({
-      id: "churn_moderate",
-      type: "warning",
-      category: "Retention & Churn",
-      title: "Moderate Churn Decay (2% – 4% / mo)",
-      metricValue: `${(inputs.customer_churn_rate * 100).toFixed(1)}% / mo`,
-      summary: `Attrition is within average early-stage ranges, but compound churn will become a growth bottleneck as account volume increases.`,
-      recommendation:
-        "Implement automated health scoring to flag at-risk accounts before cancellation notices.",
-    });
+  // 5. Customer Retention & Churn Evaluation (only if venture has an active or starting paying customer base)
+  if (inputs.initial_paying_customers > 0 || summary.final_month_customers > 0) {
+    if (inputs.customer_churn_rate <= 0.02) {
+      signals.push({
+        id: "churn_low",
+        type: "good",
+        category: "Retention & Churn",
+        title: "Strong Customer Retention (≤ 2.0% Churn)",
+        metricValue: `${(inputs.customer_churn_rate * 100).toFixed(1)}% / mo`,
+        summary: `Low monthly customer decay minimizes revenue leakage and lets organic and paid additions compound ARR.`,
+        recommendation:
+          "High customer retention makes this an opportune time to launch expansion tiers and cross-sells.",
+      });
+    } else if (inputs.customer_churn_rate >= 0.04) {
+      signals.push({
+        id: "churn_high",
+        type: "bad",
+        category: "Retention & Churn",
+        title: "Severe Customer Attrition (≥ 4.0% Churn)",
+        metricValue: `${(inputs.customer_churn_rate * 100).toFixed(1)}% / mo`,
+        summary: `Monthly attrition of ${(inputs.customer_churn_rate * 100).toFixed(
+          1
+        )}% leaks over 38% of your customer base annually, creating an expensive treadmill.`,
+        recommendation:
+          "Conduct customer retention audits and address onboarding friction before scaling acquisition spend.",
+      });
+    } else {
+      signals.push({
+        id: "churn_moderate",
+        type: "warning",
+        category: "Retention & Churn",
+        title: "Moderate Churn Decay (2% – 4% / mo)",
+        metricValue: `${(inputs.customer_churn_rate * 100).toFixed(1)}% / mo`,
+        summary: `Attrition is within average early-stage ranges, but compound churn will become a growth bottleneck as account volume increases.`,
+        recommendation:
+          "Implement automated health scoring to flag at-risk accounts before cancellation notices.",
+      });
+    }
   }
 
-  // 6. Break-Even & Profitability Evaluation
-  if (summary.break_even_month !== null) {
-    signals.push({
-      id: "breakeven_reached",
-      type: "good",
-      category: "Capital & Runway",
-      title: "Operating Break-Even Achieved",
-      metricValue: `Month ${summary.break_even_month}`,
-      summary: `Revenue covers all operational overhead and payroll starting in Month ${summary.break_even_month}, achieving cash self-sufficiency.`,
-      recommendation:
-        "Reaching cash flow positivity dramatically reduces fundraising risk and maximizes founder leverage.",
-    });
-  } else {
-    signals.push({
-      id: "breakeven_unreached",
-      type: "warning",
-      category: "Capital & Runway",
-      title: "Operating Burn Throughout Planning Horizon",
-      metricValue: `No Break-Even`,
-      summary: `Business remains net cash-flow negative across all ${inputs.planning_horizon} months under current growth velocity.`,
-      recommendation:
-        "Run reverse planning to identify the exact customer count or ARPU required to achieve break-even before cash reserve breaches.",
-    });
+  // 6. Break-Even & Profitability Evaluation (only if business has active revenue or opex)
+  if (summary.final_month_mrr > 0 || projections.some((p) => p.total_opex > 0)) {
+    if (summary.break_even_month !== null) {
+      signals.push({
+        id: "breakeven_reached",
+        type: "good",
+        category: "Capital & Runway",
+        title: "Operating Break-Even Achieved",
+        metricValue: `Month ${summary.break_even_month}`,
+        summary: `Revenue covers all operational overhead and payroll starting in Month ${summary.break_even_month}, achieving cash self-sufficiency.`,
+        recommendation:
+          "Reaching cash flow positivity dramatically reduces fundraising risk and maximizes founder leverage.",
+      });
+    } else {
+      signals.push({
+        id: "breakeven_unreached",
+        type: "warning",
+        category: "Capital & Runway",
+        title: "Operating Burn Throughout Planning Horizon",
+        metricValue: `No Break-Even`,
+        summary: `Business remains net cash-flow negative across all ${inputs.planning_horizon} months under current growth velocity.`,
+        recommendation:
+          "Run reverse planning to identify the exact customer count or ARPU required to achieve break-even before cash reserve breaches.",
+      });
+    }
   }
 
   const goodSignals = signals.filter((s) => s.type === "good");
@@ -394,3 +437,4 @@ export const SituationAnalysisRadar: React.FC<SituationAnalysisRadarProps> = ({
     </div>
   );
 };
+
