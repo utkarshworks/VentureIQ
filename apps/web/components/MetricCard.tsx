@@ -27,14 +27,14 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   }[statusType];
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow transition-all space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-500 truncate" title={title}>
+    <div className="group rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm hover:shadow-md hover:border-slate-300 transition-all space-y-2">
+      <div className="flex items-center justify-between gap-1.5">
+        <span className="text-xs font-semibold text-slate-500 truncate group-hover:text-slate-700 transition-colors" title={title}>
           {title}
         </span>
         {statusBadge && (
           <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide ${badgeClasses}`}
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide shrink-0 ${badgeClasses}`}
           >
             {statusBadge}
           </span>
@@ -42,12 +42,11 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       </div>
 
       <div className="flex items-baseline gap-2">
-        <span className="text-xl font-bold tracking-tight text-slate-900">{value}</span>
+        <span className="text-2xl font-extrabold tracking-tight text-slate-900">{value}</span>
       </div>
 
-      {subtitle && <p className="text-[11px] text-slate-400 truncate">{subtitle}</p>}
-      {hint && <p className="text-[10px] text-slate-400 italic">{hint}</p>}
+      {subtitle && <p className="text-[11px] font-medium text-slate-400 truncate">{subtitle}</p>}
+      {hint && <p className="text-[10px] text-slate-400 italic line-clamp-1">{hint}</p>}
     </div>
   );
 };
-

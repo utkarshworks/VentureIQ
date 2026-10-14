@@ -2,7 +2,7 @@
 
 import React from "react";
 import { CurrencyCode } from "@/types/model";
-import { Download, FileText, Sparkles, TrendingUp } from "lucide-react";
+import { Download, FileText, Sparkles, TrendingUp, Building2 } from "lucide-react";
 
 interface NavbarProps {
   companyName: string;
@@ -24,34 +24,34 @@ export const Navbar: React.FC<NavbarProps> = ({
   onExportPdf,
 }) => {
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/95 px-6 backdrop-blur">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/95 px-6 backdrop-blur shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm ring-1 ring-slate-800">
           <TrendingUp className="h-5 w-5 text-emerald-400" />
         </div>
         <div>
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold tracking-tight text-slate-900">VentureIQ</span>
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
               v1.0 Production
             </span>
           </div>
           <p className="text-xs text-slate-500">
-            Model: <span className="font-medium text-slate-700">{companyName}</span>
+            Active Model: <span className="font-semibold text-slate-800">{companyName}</span>
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
         {/* Currency Selector */}
-        <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-1 text-xs font-medium">
+        <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100/80 p-0.5 text-xs font-medium">
           {(["INR", "USD", "EUR", "GBP"] as CurrencyCode[]).map((curr) => (
             <button
               key={curr}
               onClick={() => onCurrencyChange(curr)}
-              className={`rounded-md px-2.5 py-1 transition-all ${
+              className={`rounded-lg px-2.5 py-1 text-xs transition-all ${
                 currency === curr
-                  ? "bg-white text-slate-900 shadow-sm font-semibold"
+                  ? "bg-white text-slate-900 shadow-sm font-bold"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -60,40 +60,42 @@ export const Navbar: React.FC<NavbarProps> = ({
           ))}
         </div>
 
-        {/* Analyze Startup / Intake Button */}
+        {/* Simulate / Intake Company Button */}
         <button
           onClick={onOpenIntake}
-          className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-all shadow-sm"
+          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all shadow-sm"
+          title="Input custom startup actuals or upload pitch notes"
         >
-          <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-          <span>Analyze Your Startup</span>
+          <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+          <span>Simulate Startup</span>
         </button>
 
         {/* AI Explainer Button */}
         <button
           onClick={onOpenAI}
-          className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-all shadow-sm"
+          className="flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-all shadow-sm"
+          title="Query AI strategic financial copilot"
         >
           <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-          <span>AI Insights</span>
+          <span>AI Copilot</span>
         </button>
 
-        {/* Export Dropdown / Buttons */}
+        {/* Export Buttons */}
         <div className="flex items-center gap-1.5">
           <button
             onClick={onExportCsv}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
-            title="Export monthly projection spreadsheet"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+            title="Export monthly projection CSV spreadsheet"
           >
             <Download className="h-3.5 w-3.5 text-slate-500" />
             <span>CSV</span>
           </button>
           <button
             onClick={onExportPdf}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-all shadow-sm"
+            className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-all shadow-sm"
             title="Download executive brief PDF"
           >
-            <FileText className="h-3.5 w-3.5 text-slate-300" />
+            <FileText className="h-3.5 w-3.5 text-emerald-400" />
             <span>Download PDF</span>
           </button>
         </div>
@@ -101,4 +103,3 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
-

@@ -149,7 +149,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ result, inputs }) =>
                   stroke="#059669"
                   strokeWidth={2}
                   fillOpacity={1}
-                  fill="urlColorArr"
+                  fill="url(#colorArr)"
                 />
                 <Area
                   type="monotone"
