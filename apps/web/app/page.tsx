@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { ModelEngineInputs, CurrencyCode } from "@/types/model";
 import { DEFAULT_SAAS_MODEL } from "@/lib/defaultModel";
 import { simulateModelLocally } from "@/lib/engine";
@@ -21,8 +21,8 @@ import { SensitivityView } from "@/features/SensitivityView";
 import { CashFlowHiringView } from "@/features/CashFlowHiringView";
 import { ReportsView } from "@/features/ReportsView";
 import { AIExplainerModal } from "@/features/AIExplainerModal";
-import { CompanyIntakeModal } from "@/features/CompanyIntakeModal";
-import { Target, FileText, Sparkles, Building2, SlidersHorizontal } from "lucide-react";
+import { CompanyAssessmentWizard } from "@/features/CompanyAssessmentWizard";
+import { Target, FileText, Sparkles, Building2, SlidersHorizontal, RotateCcw } from "lucide-react";
 
 export default function AppHome() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
@@ -32,7 +32,34 @@ export default function AppHome() {
   );
   const [customScenarios, setCustomScenarios] = useState<Record<string, Record<string, any>>>({});
   const [isAIModalOpen, setIsAIModalOpen] = useState<boolean>(false);
-  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState<boolean>(false);
+  
+  // Controls whether the visitor is on the multi-step assessment screen or the main dashboard
+  const [isAssessmentOpen, setIsAssessmentOpen] = useState<boolean>(true);
+  const [isClientLoaded, setIsClientLoaded] = useState<boolean>(false);
+
+  // Load saved company assessment from localStorage on initial render
+  useEffect(() => {
+    try {
+      const savedModel = localStorage.getItem("ventureiq_saved_model");
+      const savedDecision = localStorage.getItem("ventureiq_saved_decision");
+      const completed = localStorage.getItem("ventureiq_assessment_completed");
+
+      if (savedModel) {
+        const parsed = JSON.parse(savedModel);
+        setInputs(parsed);
+      }
+      if (savedDecision) {
+        setDecisionGoalText(savedDecision);
+      }
+      if (completed === "true") {
+        setIsAssessmentOpen(false);
+      }
+    } catch {
+      // Use defaults if parse fails
+    } finally {
+      setIsClientLoaded(true);
+    }
+  }, []);
 
   // Compute deterministic simulation result for current model inputs
   const simulationResult = useMemo(() => {
@@ -40,15 +67,24 @@ export default function AppHome() {
   }, [inputs]);
 
   const handleCurrencyChange = (newCurrency: CurrencyCode) => {
-    setInputs((prev) => ({ ...prev, currency: newCurrency }));
+    setInputs((prev) => {
+      const updated = { ...prev, currency: newCurrency };
+      localStorage.setItem("ventureiq_saved_model", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleUpdateInputs = (newInputs: ModelEngineInputs) => {
     setInputs(newInputs);
+    localStorage.setItem("ventureiq_saved_model", JSON.stringify(newInputs));
   };
 
   const handleApplyPartialAssumptions = (partial: Partial<ModelEngineInputs>) => {
-    setInputs((prev) => ({ ...prev, ...partial }));
+    setInputs((prev) => {
+      const updated = { ...prev, ...partial };
+      localStorage.setItem("ventureiq_saved_model", JSON.stringify(updated));
+      return updated;
+    });
     setActiveTab("overview");
   };
 
@@ -68,11 +104,37 @@ export default function AppHome() {
     generateExecutivePdfReport(inputs, simulationResult, decisionGoalText);
   };
 
-  const handleCompanyIntakeSubmit = (newInputs: ModelEngineInputs, decisionNotes?: string) => {
-    setInputs(newInputs);
-    if (decisionNotes) setDecisionGoalText(decisionNotes);
+  // Handles completion of the multi-step intake assessment wizard
+  const handleAssessmentComplete = (completedInputs: ModelEngineInputs, decisionGoal: string) => {
+    setInputs(completedInputs);
+    setDecisionGoalText(decisionGoal);
+    try {
+      localStorage.setItem("ventureiq_saved_model", JSON.stringify(completedInputs));
+      localStorage.setItem("ventureiq_saved_decision", decisionGoal);
+      localStorage.setItem("ventureiq_assessment_completed", "true");
+    } catch {
+      // Ignore quota storage errors
+    }
+    setIsAssessmentOpen(false);
     setActiveTab("overview");
   };
+
+  const handleSkipToDemo = () => {
+    setIsAssessmentOpen(false);
+    setActiveTab("overview");
+  };
+
+  // If user hasn't loaded client yet or is taking assessment, show the multi-step wizard
+  if (isAssessmentOpen && isClientLoaded) {
+    return (
+      <CompanyAssessmentWizard
+        initialInputs={inputs}
+        initialDecisionGoal={decisionGoalText}
+        onComplete={handleAssessmentComplete}
+        onSkipToDemo={handleSkipToDemo}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
@@ -80,7 +142,7 @@ export default function AppHome() {
         companyName={inputs.company_name}
         currency={inputs.currency}
         onCurrencyChange={handleCurrencyChange}
-        onOpenIntake={() => setIsCompanyModalOpen(true)}
+        onOpenIntake={() => setIsAssessmentOpen(true)}
         onOpenAI={() => setIsAIModalOpen(true)}
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
@@ -112,8 +174,9 @@ export default function AppHome() {
                     &quot;{decisionGoalText}&quot;
                   </span>
                   <button
-                    onClick={() => setIsCompanyModalOpen(true)}
+                    onClick={() => setIsAssessmentOpen(true)}
                     className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline shrink-0"
+                    title="Edit strategic decision or company inputs"
                   >
                     Edit Decision
                   </button>
@@ -123,11 +186,12 @@ export default function AppHome() {
 
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => setIsCompanyModalOpen(true)}
+                onClick={() => setIsAssessmentOpen(true)}
                 className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                title="Retake multi-step company assessment"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5 text-slate-500" />
-                <span>Simulate Startup</span>
+                <span>Retake Assessment</span>
               </button>
               <button
                 onClick={handleExportPdf}
@@ -191,13 +255,6 @@ export default function AppHome() {
           )}
         </main>
       </div>
-
-      <CompanyIntakeModal
-        isOpen={isCompanyModalOpen}
-        onClose={() => setIsCompanyModalOpen(false)}
-        currentInputs={inputs}
-        onSubmit={handleCompanyIntakeSubmit}
-      />
 
       <AIExplainerModal
         isOpen={isAIModalOpen}

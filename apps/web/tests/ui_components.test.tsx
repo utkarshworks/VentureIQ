@@ -48,5 +48,25 @@ describe("UI Components", () => {
     const { container } = render(<WarningsBanner warnings={[]} />);
     expect(container.firstChild).toBeNull();
   });
+
+  it("renders CompanyAssessmentWizard with questions and step 1 headers", async () => {
+    const { CompanyAssessmentWizard } = await import("@/features/CompanyAssessmentWizard");
+    const { DEFAULT_SAAS_MODEL } = await import("@/lib/defaultModel");
+
+    render(
+      <CompanyAssessmentWizard
+        initialInputs={DEFAULT_SAAS_MODEL}
+        initialDecisionGoal="Reach ₹1 Crore ARR run rate within 12 months"
+        onComplete={() => {}}
+        onSkipToDemo={() => {}}
+      />
+    );
+
+    expect(screen.getByText("Step 1: Company Identity & Planning Horizon")).toBeDefined();
+    expect(screen.getByText("Company / Startup Name")).toBeDefined();
+    expect(screen.getByText("Operating Currency")).toBeDefined();
+    expect(screen.getByText("Planning Horizon (Simulation Length)")).toBeDefined();
+    expect(screen.getByText("Continue to Step 02")).toBeDefined();
+  });
 });
 
