@@ -7,7 +7,7 @@
 export const DAILY_LIMIT = 5;
 export const STORAGE_KEY = "ventureiq_ai_daily_usage";
 export const QUOTA_EXCEEDED_MESSAGE =
-  "You've used your 5 daily demo AI questions. Deterministic calculations and PDF generation remain unlimited!";
+  "Daily advisory limit reached. Calculations and PDF generation remain unlimited!";
 
 export interface RateLimitStatus {
   count: number;
@@ -15,6 +15,12 @@ export interface RateLimitStatus {
   limit: number;
   isQuotaExceeded: boolean;
   date: string;
+}
+
+export function isLocalhost(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");
 }
 
 export function getTodayKey(): string {
@@ -25,12 +31,25 @@ export function getTodayKey(): string {
   return `${year}-${month}-${day}`;
 }
 
-export function getAiRateLimitStatus(): RateLimitStatus {
-  if (typeof window === "undefined") {
+export function getAiRateLimitStatus(forceEnforce: boolean = false): RateLimitStatus {
+  const isLocal = !forceEnforce && isLocalhost();
+  const effectiveLimit = isLocal ? 999999 : DAILY_LIMIT;
+
+  if (typeof window === "undefined" && !forceEnforce) {
     return {
       count: 0,
-      remaining: DAILY_LIMIT,
-      limit: DAILY_LIMIT,
+      remaining: effectiveLimit,
+      limit: effectiveLimit,
+      isQuotaExceeded: false,
+      date: getTodayKey(),
+    };
+  }
+
+  if (isLocal) {
+    return {
+      count: 0,
+      remaining: 999999,
+      limit: 999999,
       isQuotaExceeded: false,
       date: getTodayKey(),
     };
@@ -81,7 +100,18 @@ export function getAiRateLimitStatus(): RateLimitStatus {
   }
 }
 
-export function incrementAiUsage(): RateLimitStatus {
+export function incrementAiUsage(forceEnforce: boolean = false): RateLimitStatus {
+  const isLocal = !forceEnforce && isLocalhost();
+  if (isLocal) {
+    return {
+      count: 0,
+      remaining: 999999,
+      limit: 999999,
+      isQuotaExceeded: false,
+      date: getTodayKey(),
+    };
+  }
+
   if (typeof window === "undefined") {
     return {
       count: 1,
@@ -92,7 +122,7 @@ export function incrementAiUsage(): RateLimitStatus {
     };
   }
   try {
-    const status = getAiRateLimitStatus();
+    const status = getAiRateLimitStatus(forceEnforce);
     const newCount = status.count + 1;
     const updated = { date: status.date, count: newCount };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));

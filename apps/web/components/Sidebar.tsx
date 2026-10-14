@@ -9,7 +9,6 @@ import {
   GitCompare,
   TrendingDown,
   Users,
-  FileSpreadsheet,
   Target,
 } from "lucide-react";
 
@@ -21,35 +20,35 @@ export type TabId =
   | "scenarios"
   | "reverse_planner"
   | "sensitivity"
-  | "cash_flow_hiring"
-  | "reports";
+  | "cash_flow_hiring";
 
 interface SidebarProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
 }
 
+export const NAV_ITEMS = [
+  { id: "overview", label: "Overview Dashboard", icon: LayoutDashboard },
+  {
+    id: "reverse_planner",
+    label: "Reverse Planner",
+    icon: Target,
+    highlight: true,
+    badge: "Core Feature",
+  },
+  { id: "model_editor", label: "Financial Model", icon: Sliders },
+  { id: "unit_economics", label: "Unit Economics", icon: Calculator },
+  { id: "growth_simulator", label: "Growth Simulator", icon: Compass },
+  { id: "scenarios", label: "Scenario Planning", icon: GitCompare },
+  { id: "sensitivity", label: "Sensitivity Analysis", icon: TrendingDown },
+  { id: "cash_flow_hiring", label: "Cash Flow & Hiring", icon: Users },
+];
+
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
-  const navItems = [
-    { id: "overview", label: "Overview Dashboard", icon: LayoutDashboard },
-    { id: "model_editor", label: "Financial Model", icon: Sliders },
-    { id: "unit_economics", label: "Unit Economics", icon: Calculator },
-    { id: "growth_simulator", label: "Growth Simulator", icon: Compass },
-    { id: "scenarios", label: "Scenario Planning", icon: GitCompare },
-    {
-      id: "reverse_planner",
-      label: "Reverse Planner",
-      icon: Target,
-      highlight: true,
-      badge: "Core Feature",
-    },
-    { id: "sensitivity", label: "Sensitivity Analysis", icon: TrendingDown },
-    { id: "cash_flow_hiring", label: "Cash Flow & Hiring", icon: Users },
-    { id: "reports", label: "Reports & Data", icon: FileSpreadsheet },
-  ];
+  const navItems = NAV_ITEMS;
 
   return (
-    <aside className="w-64 border-r border-slate-200 bg-white p-4 flex flex-col justify-between shrink-0 min-h-[calc(100vh-4rem)]">
+    <aside className="hidden lg:flex w-64 border-r border-slate-200 bg-white p-4 flex-col justify-between shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto z-20">
       <div className="space-y-1">
         <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
           Decision Modules

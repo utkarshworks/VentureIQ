@@ -39,9 +39,10 @@ describe("UI Components", () => {
 
     render(<WarningsBanner warnings={warnings} />);
 
-    expect(screen.getByText("[RESERVE_BREACH]")).toBeDefined();
+    expect(screen.getByText("SAFETY RESERVE BREACH")).toBeDefined();
     expect(screen.getByText("Cash falls below minimum reserve in Month 7")).toBeDefined();
-    expect(screen.getByText("[NEGATIVE_UNIT_ECONOMICS]")).toBeDefined();
+    expect(screen.getByText("MARGIN LEAKAGE")).toBeDefined();
+    expect(screen.getAllByText(/CFO Action Plan:/i).length).toBeGreaterThan(0);
   });
 
   it("returns null when warnings array is empty", () => {
@@ -80,21 +81,23 @@ describe("UI Components", () => {
     expect(screen.getByText("Continue to Step 02")).toBeDefined();
   });
 
-  it("navigates through the 4-step wizard, verifies Current Blended CAC and Target CAC in Step 3, and completes at Step 4", async () => {
+  it("navigates through the 5-step wizard, verifies CAC in Step 3, Decision Focus in Step 5, and completes", async () => {
     const { CompanyAssessmentWizard } = await import("@/features/CompanyAssessmentWizard");
     const { DEFAULT_SAAS_MODEL } = await import("@/lib/defaultModel");
     const { fireEvent } = await import("@testing-library/react");
 
     let completed = false;
     let submittedInputs: any = null;
+    let submittedPriority: any = null;
 
     render(
       <CompanyAssessmentWizard
         initialInputs={DEFAULT_SAAS_MODEL}
         initialDecisionGoal="Reach ₹1 Crore ARR run rate"
-        onComplete={(inputs) => {
+        onComplete={(inputs, goal, priority) => {
           completed = true;
           submittedInputs = inputs;
+          submittedPriority = priority;
         }}
       />
     );
@@ -106,22 +109,41 @@ describe("UI Components", () => {
     // Step 2 -> Step 3
     fireEvent.click(screen.getByText("Continue to Step 03"));
     expect(screen.getByText("Step 3: Growth Engine, CAC & Churn Dynamics")).toBeDefined();
-    // Verify Current Blended CAC and Target CAC fields are rendered in Step 3
+    // Verify Current Blended CAC, Target CAC, and 4-field retention grid in Step 3
     expect(screen.getByText("Current Blended CAC (INR)")).toBeDefined();
     expect(screen.getByText("Target CAC (INR)")).toBeDefined();
+    expect(screen.getByText("Monthly Customer Churn Rate")).toBeDefined();
+    expect(screen.getByText("Avg Customer Lifetime (Months)")).toBeDefined();
+    expect(screen.getByText("Organic Customers / Mo")).toBeDefined();
+    expect(screen.getByText("Monthly Expansion Rate")).toBeDefined();
+    // Switched tabs removed as instructed
+    expect(screen.queryByText("Monthly Churn %")).toBeNull();
+    expect(screen.queryByText("Annual Churn %")).toBeNull();
 
     // Step 3 -> Step 4
     fireEvent.click(screen.getByText("Continue to Step 04"));
-    expect(screen.getByText("Step 4: Operating Expenses & Team Payroll")).toBeDefined();
+    expect(screen.getByText("Step 4: Cost of Goods Sold (COGS) & Operating Expenses")).toBeDefined();
 
-    // Verify Step 4 has the final submit button
+    // Step 4 -> Step 5
+    fireEvent.click(screen.getByText("Continue to Step 05"));
+    expect(screen.getByText("What strategic problem do you need help solving?")).toBeDefined();
+    expect(screen.getByText("Extend Cash Runway & Capital Preservation")).toBeDefined();
+    expect(screen.getByText("Optimize Unit Economics & LTV:CAC")).toBeDefined();
+    expect(screen.getByText("Scale Acquisition & Top-Line ARR Growth")).toBeDefined();
+    expect(screen.getByText("Achieve Operating Cash Break-Even")).toBeDefined();
+
+    // Choose Unit Economics
+    fireEvent.click(screen.getByText("Optimize Unit Economics & LTV:CAC"));
+
+    // Verify Step 5 has the final submit button
     const submitBtn = screen.getByText("Build Financial Engine & Open Dashboard");
     expect(submitBtn).toBeDefined();
 
-    // Click submit with empty fields -> should submit cleanly with zeroed inputs
+    // Click submit -> should submit cleanly with zeroed/configured inputs and selected priority
     fireEvent.click(submitBtn);
     expect(completed).toBe(true);
     expect(submittedInputs).toBeDefined();
+    expect(submittedPriority).toBe("unit_economics");
   });
 
   it("renders SituationAnalysisRadar and flags good, bad, and warning signals with filter pills", async () => {
@@ -131,9 +153,17 @@ describe("UI Components", () => {
     const { fireEvent } = await import("@testing-library/react");
 
     const result = simulateModelLocally(DEFAULT_SAAS_MODEL);
-    render(<SituationAnalysisRadar result={result} inputs={DEFAULT_SAAS_MODEL} />);
+    render(
+      <SituationAnalysisRadar
+        result={result}
+        inputs={DEFAULT_SAAS_MODEL}
+        helpPriority="unit_economics"
+        decisionGoal="Optimize LTV:CAC past 3x"
+      />
+    );
 
     expect(screen.getByText("Current Situation Analysis & Health Radar")).toBeDefined();
+    expect(screen.getByText("Active Advisory Objective (Section 5)")).toBeDefined();
     expect(screen.getByText(/All Findings/)).toBeDefined();
     expect(screen.getByText(/🟢 Good/)).toBeDefined();
     expect(screen.getByText(/🟡 Watchlist/)).toBeDefined();
@@ -200,6 +230,35 @@ describe("UI Components", () => {
     // Verify placeholders
     expect(screen.getByText("Trajectory Visualizations Awaiting Baseline")).toBeDefined();
     expect(screen.getByText("No financial projections to display. Complete the assessment or input your company figures to generate audited monthly balance sheet and P&L schedules.")).toBeDefined();
+  });
+
+  it("converts model inputs dynamically across currencies while preserving customer counts and percentages", async () => {
+    const { convertModelInputs, getExchangeRate } = await import("@/lib/currencyConverter");
+    const { DEFAULT_SAAS_MODEL } = await import("@/lib/defaultModel");
+
+    const inrModel = {
+      ...DEFAULT_SAAS_MODEL,
+      currency: "INR" as const,
+      arpu: 500, // ₹500
+      initial_cash_balance: 868000,
+      initial_paying_customers: 250,
+      customer_churn_rate: 0.025,
+      lead_conversion_rate: 0.035,
+    };
+
+    const usdModel = convertModelInputs(inrModel, "INR", "USD");
+
+    expect(usdModel.currency).toBe("USD");
+    // Customers and percentages remain untouched
+    expect(usdModel.initial_paying_customers).toBe(250);
+    expect(usdModel.customer_churn_rate).toBe(0.025);
+    expect(usdModel.lead_conversion_rate).toBe(0.035);
+
+    // Monetary values converted according to exchange rate
+    // ₹500 at ~86.8 INR/USD is ~$5.76
+    expect(usdModel.arpu).toBeGreaterThan(5.0);
+    expect(usdModel.arpu).toBeLessThan(7.0);
+    expect(usdModel.initial_cash_balance).toBe(10000); // 868,000 / 86.8 = 10,000
   });
 });
 

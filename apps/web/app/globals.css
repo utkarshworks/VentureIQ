@@ -12,6 +12,7 @@ body {
   color: rgb(var(--foreground-rgb));
   background: #f8fafc;
   min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 

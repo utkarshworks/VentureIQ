@@ -22,12 +22,24 @@ import {
   ReferenceLine,
 } from "recharts";
 
+import { StrategicHelpPriority } from "@/lib/advisoryEngine";
+import { Sparkles } from "lucide-react";
+
 interface OverviewViewProps {
   result: EngineSimulationResult;
   inputs: ModelEngineInputs;
+  helpPriority?: StrategicHelpPriority;
+  decisionGoal?: string;
+  onOpenAI?: (query?: string) => void;
 }
 
-export const OverviewView: React.FC<OverviewViewProps> = ({ result, inputs }) => {
+export const OverviewView: React.FC<OverviewViewProps> = ({
+  result,
+  inputs,
+  helpPriority,
+  decisionGoal,
+  onOpenAI,
+}) => {
   const [tableTab, setTableTab] = useState<"summary" | "customers" | "cash">("summary");
   const { summary, projections } = result;
   const curr = inputs.currency;
@@ -54,7 +66,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ result, inputs }) =>
   return (
     <div className="space-y-6">
       {/* Top Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
           title="Month 12 ARR Run Rate"
           value={isEmpty ? "N/A" : formatCurrency(summary.final_month_arr, curr, true)}
@@ -164,7 +176,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ result, inputs }) =>
         />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
           title="Avg Gross Margin"
           value={isEmpty || summary.final_month_mrr === 0 ? "N/A" : formatPercent(summary.average_gross_margin_pct)}
@@ -267,8 +279,77 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ result, inputs }) =>
         />
       </div>
 
-      {/* Current Situation Analysis & Health Radar (Good, Bad, Watchlist) */}
-      <SituationAnalysisRadar result={result} inputs={inputs} />
+      {/* EXECUTIVE CFO ADVISORY SPOTLIGHT HERO CARD */}
+      {!isEmpty && onOpenAI && (
+        <div className="relative overflow-hidden rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 p-4 sm:p-6 text-white shadow-xl shadow-emerald-950/20">
+          <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+            <div className="space-y-2.5 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 border border-emerald-400/30">
+                  Recommended First Step: Executive CFO Briefing
+                </span>
+              </div>
+              <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                <span>Executive Strategic Advisory Copilot Ready</span>
+                <Sparkles className="h-4 w-4 text-emerald-400 animate-pulse" />
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                VentureIQ has synthesized your cash runway ({summary.runway_status}), blended CAC ({summary.blended_cac_final !== null ? formatCurrency(summary.blended_cac_final, curr) : "N/A"}), and break-even trajectory. Trigger a confidential 1-click strategic audit to reveal hidden bottlenecks, capital allocation risks, and board-level risk mitigations.
+              </p>
+              {/* 1-Click Prompt Pills */}
+              <div className="flex items-center gap-2 flex-wrap pt-1">
+                <span className="text-[11px] font-semibold text-slate-400">Quick Inquiries:</span>
+                <button
+                  type="button"
+                  onClick={() => onOpenAI("How can we extend our cash runway to 18 months without emergency dilution?")}
+                  className="rounded-lg bg-white/10 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-400/40 px-2.5 py-1 text-[11px] text-slate-200 hover:text-white transition-all shadow-sm"
+                >
+                  💡 18-Month Runway Extension
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenAI("What pricing or customer volume is required to achieve operating break-even?")}
+                  className="rounded-lg bg-white/10 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-400/40 px-2.5 py-1 text-[11px] text-slate-200 hover:text-white transition-all shadow-sm"
+                >
+                  💡 Break-Even Customer Volume
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenAI("Evaluate our LTV:CAC multiple, gross margin, and CAC payback duration.")}
+                  className="rounded-lg bg-white/10 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-400/40 px-2.5 py-1 text-[11px] text-slate-200 hover:text-white transition-all shadow-sm"
+                >
+                  💡 Unit Economics Viability
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onOpenAI("Provide an executive summary of our financial model, unit economics, runway, and capital efficiency for board review.")}
+              className="relative shrink-0 flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 px-5 py-3 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-[0.98] transition-all"
+            >
+              <Sparkles className="h-4 w-4 text-slate-950" />
+              <span>Launch CFO Advisory Memo</span>
+              <span className="text-[10px] bg-slate-950/20 text-slate-900 font-extrabold px-1.5 py-0.5 rounded">
+                1-Click
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Current Situation Analysis & Health Radar (Good, Bad, Watchlist, Goal Priorities) */}
+      <SituationAnalysisRadar
+        result={result}
+        inputs={inputs}
+        helpPriority={helpPriority}
+        decisionGoal={decisionGoal}
+      />
 
       {/* Visual Charts Grid */}
       {isEmpty ? (

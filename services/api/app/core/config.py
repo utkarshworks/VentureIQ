@@ -30,9 +30,6 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
-    # AI Keys (Optional)
-    GEMINI_API_KEY: str = ""
-    OPENAI_API_KEY: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -33,6 +33,7 @@ ENV/
 # Node / Next.js
 node_modules/
 .next/
+.next-build/
 out/
 build/
 .pnp

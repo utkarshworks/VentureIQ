@@ -10,23 +10,7 @@ VentureIQ is packaged into production-ready containers:
 
 ---
 
-## 2. Docker Compose (Local & Production Simulation)
-
-A unified `docker-compose.yml` is provided at root:
-```bash
-# Build and run entire stack
-docker-compose up --build -d
-
-# Run database migrations
-docker-compose exec api alembic upgrade head
-
-# Run automated tests inside container
-docker-compose exec api pytest
-```
-
----
-
-## 3. Environment Variables Configuration
+## 2. Production Environment Configuration
 
 Refer to `.env.example`. Required keys:
 - `DATABASE_URL`: `postgresql+asyncpg://user:password@host:5432/ventureiq` (and sync counterpart for migrations: `postgresql://user:password@host:5432/ventureiq`)
@@ -35,7 +19,6 @@ Refer to `.env.example`. Required keys:
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: 1440 (24 hours)
 - `CORS_ORIGINS`: Comma-separated list of allowed frontend origins (e.g. `http://localhost:3000,https://app.ventureiq.io`).
 - `ENVIRONMENT`: `production` or `development`
-- `OPENAI_API_KEY` / `GEMINI_API_KEY`: Optional key for AI explanation module.
 
 ---
 

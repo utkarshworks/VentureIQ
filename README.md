@@ -17,8 +17,7 @@ The defining feature of VentureIQ is **Reverse Planning**: specify a strategic m
 - **Sensitivity Analysis:** 1-variable sweeps, 2-variable matrix tables, and Tornado charts ranking driver elasticity.
 - **Assumption & Data Quality Management:** Differentiates observed historical facts, user assumptions, and calculated outputs; supports validated CSV imports with preview and mapping.
 - **Reporting & Exports:** Detailed monthly audit tables, interactive Recharts visualizations (supporting Indian Rupee ₹ Lakhs/Crores and global currencies), CSV exports, and executive PDF summaries.
-- **Multi-Tenant Security:** Organization and workspace scoping, JWT authentication, and full model history audit trails.
-- **Optional AI Explanation Layer:** Contextual narrative insights that explain calculated outputs without ever hallucinating financial formulas.
+- **Deterministic Strategic Advisory Engine:** Contextual narrative insights that audit calculated outputs and provide risk mitigations based strictly on financial invariants.
 
 ---
 
@@ -52,7 +51,6 @@ VentureIQ/
 - **Python:** 3.12+ (Python 3.14 compatible)
 - **Node.js:** 20.x or 24.x (with npm)
 - **PostgreSQL:** 16+ (or SQLite for local zero-dependency testing)
-- **Docker & Docker Compose** (optional, for containerized execution)
 
 ---
 
@@ -135,7 +133,7 @@ npm run test
 
 - **Model Scope:** Release 1.0 specifically models recurring-revenue subscription businesses (B2B SaaS, B2C subscriptions). Transactional marketplaces and ad-driven models are reserved for future engine plugins.
 - **Cash Receipts:** Revenue collection defaults to month-of-billing; payment term delays (DSO receivables lag) are configurable in advanced settings.
-- **AI Explanations:** The AI explanation layer requires a valid API key (`GEMINI_API_KEY` or `OPENAI_API_KEY`) and strictly references computed outputs.
+- **Privacy & Governance:** All advisory engines and simulation routines run 100% deterministically and on-device without transmitting sensitive venture actuals to third-party endpoints.
 
 ---
 

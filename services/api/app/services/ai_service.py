@@ -55,58 +55,11 @@ async def explain_model_results(
     sim_result: EngineSimulationResult,
     user_query: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Produces narrative analysis. Calls Gemini API if GEMINI_API_KEY is configured,
-    otherwise uses deterministic rule-based analysis.
-    """
-    fallback_text = generate_rule_based_explanation(sim_result)
-    
-    if not settings.GEMINI_API_KEY:
-        return {
-            "source": "deterministic_rule_engine",
-            "explanation": fallback_text,
-            "disclaimer": "AI explanations strictly interpret deterministic model outputs.",
-        }
-
-    try:
-        from google import genai
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        
-        context_payload = {
-            "company_name": sim_result.inputs.company_name,
-            "planning_horizon": sim_result.inputs.planning_horizon,
-            "currency": sim_result.inputs.currency.value,
-            "final_arr": sim_result.summary.final_month_arr,
-            "final_customers": sim_result.summary.final_month_customers,
-            "ending_cash": sim_result.summary.ending_cash,
-            "peak_deficit": sim_result.summary.peak_cash_deficit,
-            "runway_status": sim_result.summary.runway_status,
-            "break_even_month": sim_result.summary.break_even_month,
-            "ltv_to_cac": sim_result.summary.ltv_to_cac_ratio_final,
-            "cac_payback": sim_result.summary.cac_payback_final,
-            "warnings": [w.message for w in sim_result.warnings],
-        }
-
-        system_instruction = (
-            "You are VentureIQ's Financial Explainer. You provide crisp, objective insights for startup founders. "
-            "NEVER invent numbers or calculate new financial projections. Always cite the provided model outputs."
-        )
-        prompt = f"Model Data: {json.dumps(context_payload)}\nUser Question: {user_query or 'Summarize key drivers and risks.'}"
-
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config={"system_instruction": system_instruction},
-        )
-        return {
-            "source": "gemini_api",
-            "explanation": response.text,
-            "disclaimer": "AI explanations strictly interpret deterministic model outputs.",
-        }
-    except Exception as e:
-        return {
-            "source": "deterministic_rule_engine",
-            "explanation": fallback_text,
-            "disclaimer": f"Fell back to rule engine: {str(e)}",
-        }
+    """Produces deterministic rule-based financial analysis strictly from model invariants."""
+    explanation = generate_rule_based_explanation(sim_result)
+    return {
+        "source": "deterministic_advisory_engine",
+        "explanation": explanation,
+        "disclaimer": "Advisory insights strictly interpret deterministic financial model outputs.",
+    }
 

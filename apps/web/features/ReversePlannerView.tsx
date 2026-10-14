@@ -14,6 +14,8 @@ import {
   BookmarkPlus,
   Loader2,
 } from "lucide-react";
+import { FormattedNumberInput } from "@/components/FormattedNumberInput";
+import { PercentageInput } from "@/components/PercentageInput";
 
 interface ReversePlannerViewProps {
   baseInputs: ModelEngineInputs;
@@ -30,15 +32,17 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
 
   // Planner Config State
   const [goal, setGoal] = useState<string>("target_arr_run_rate");
-  const [targetValue, setTargetValue] = useState<number>(10000000); // Default ₹1 Crore ARR
+  const [targetValue, setTargetValue] = useState<number>(
+    curr === "INR" ? 10000000 : 120000
+  );
   const [targetMonth, setTargetMonth] = useState<number>(12);
-  const [minReserve, setMinReserve] = useState<number>(baseInputs.minimum_cash_reserve);
-  const [maxBudget, setMaxBudget] = useState<number>(baseInputs.initial_cash_balance);
+  const [minReserve, setMinReserve] = useState<number>(baseInputs.minimum_cash_reserve || 0);
+  const [maxBudget, setMaxBudget] = useState<number>(baseInputs.initial_cash_balance || 0);
 
   // Adjustable Variables & Bounds State
   const [enablePrice, setEnablePrice] = useState<boolean>(true);
-  const [minPrice, setMinPrice] = useState<number>(2000);
-  const [maxPrice, setMaxPrice] = useState<number>(6000);
+  const [minPrice, setMinPrice] = useState<number>(Math.max(1, Math.round(baseInputs.arpu * 0.7)) || (curr === "INR" ? 2000 : 25));
+  const [maxPrice, setMaxPrice] = useState<number>(Math.max(2, Math.round(baseInputs.arpu * 1.5)) || (curr === "INR" ? 6000 : 75));
 
   const [enableConversion, setEnableConversion] = useState<boolean>(true);
   const [minConv, setMinConv] = useState<number>(0.02);
@@ -46,11 +50,65 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
 
   const [enableChurn, setEnableChurn] = useState<boolean>(true);
   const [minChurn, setMinChurn] = useState<number>(0.015);
-  const [maxChurn, setMaxChurn] = useState<number>(0.04);
+  const [maxChurn, setMaxChurn] = useState<number>(0.05);
 
   const [enableMarketing, setEnableMarketing] = useState<boolean>(true);
-  const [minMarketing, setMinMarketing] = useState<number>(150000);
-  const [maxMarketing, setMaxMarketing] = useState<number>(450000);
+  const [minMarketing, setMinMarketing] = useState<number>(
+    baseInputs.acquisition_mode === "lead_based"
+      ? Math.max(1, Math.round(baseInputs.cost_per_lead * 0.6)) || (curr === "INR" ? 100 : 2)
+      : Math.max(10, Math.round(baseInputs.acquisition_budget * 0.6)) || (curr === "INR" ? 150000 : 2000)
+  );
+  const [maxMarketing, setMaxMarketing] = useState<number>(
+    baseInputs.acquisition_mode === "lead_based"
+      ? Math.max(2, Math.round(baseInputs.cost_per_lead * 1.8)) || (curr === "INR" ? 300 : 5)
+      : Math.max(20, Math.round(baseInputs.acquisition_budget * 1.8)) || (curr === "INR" ? 450000 : 6000)
+  );
+
+  // Automatically sync bounds when baseInputs updates from assessment or currency conversion
+  React.useEffect(() => {
+    setMinReserve(baseInputs.minimum_cash_reserve || 0);
+    setMaxBudget(baseInputs.initial_cash_balance || 0);
+
+    const baseArpu = baseInputs.arpu;
+    if (baseArpu > 0) {
+      setMinPrice(Math.max(1, Math.round(baseArpu * 0.7)));
+      setMaxPrice(Math.max(2, Math.round(baseArpu * 1.5)));
+    } else {
+      setMinPrice(curr === "INR" ? 2000 : 25);
+      setMaxPrice(curr === "INR" ? 6000 : 75);
+    }
+
+    const baseConv = baseInputs.lead_conversion_rate;
+    if (baseConv > 0) {
+      setMinConv(Math.max(0.005, parseFloat((baseConv * 0.6).toFixed(4))));
+      setMaxConv(Math.min(0.25, parseFloat((baseConv * 1.8).toFixed(4))));
+    }
+
+    const baseChurn = baseInputs.customer_churn_rate;
+    if (baseChurn > 0) {
+      setMinChurn(Math.max(0.005, parseFloat((baseChurn * 0.6).toFixed(4))));
+      setMaxChurn(Math.min(0.2, parseFloat((baseChurn * 1.8).toFixed(4))));
+    }
+
+    if (baseInputs.acquisition_mode === "lead_based") {
+      const baseCpl = baseInputs.cost_per_lead;
+      if (baseCpl > 0) {
+        setMinMarketing(Math.max(1, Math.round(baseCpl * 0.6)));
+        setMaxMarketing(Math.max(2, Math.round(baseCpl * 1.8)));
+      }
+    } else {
+      const baseBud = baseInputs.acquisition_budget;
+      if (baseBud > 0) {
+        setMinMarketing(Math.max(10, Math.round(baseBud * 0.6)));
+        setMaxMarketing(Math.max(20, Math.round(baseBud * 2.0)));
+      }
+    }
+
+    const calcArr = (baseInputs.initial_paying_customers || 0) * (baseInputs.arpu || 0) * 12;
+    if (calcArr > 0) {
+      setTargetValue(Math.round(calcArr * 2));
+    }
+  }, [baseInputs, curr]);
 
   // Solver Execution State
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -114,15 +172,15 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm shrink-0">
-            <Target className="h-6 w-6" />
+      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-4 sm:p-6 shadow-sm">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm shrink-0">
+            <Target className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900">Deterministic Reverse Planner</h2>
-              <span className="rounded-md bg-emerald-200/60 px-2 py-0.5 text-xs font-semibold text-emerald-900">
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">Deterministic Reverse Planner</h2>
+              <span className="rounded-md bg-emerald-200/60 px-2 py-0.5 text-[10px] sm:text-xs font-semibold text-emerald-900">
                 SciPy Constrained Optimization
               </span>
             </div>
@@ -138,7 +196,7 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
         {/* Left Column: Target & Constraints Configuration */}
         <div className="lg:col-span-5 space-y-5">
           {/* Target Goal Panel */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               1. Milestone Objective
             </h3>
@@ -159,61 +217,88 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
               </div>
 
               <div>
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-medium text-slate-700">Target Value</label>
-                  {curr === "INR" && (
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => setTargetValue(5000000)}
-                        className="text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1.5 py-0.5 font-medium text-slate-600"
-                      >
-                        ₹50L
-                      </button>
-                      <button
-                        onClick={() => setTargetValue(10000000)}
-                        className="text-[10px] bg-emerald-100 hover:bg-emerald-200 rounded px-1.5 py-0.5 font-medium text-emerald-800"
-                      >
-                        ₹1 Cr
-                      </button>
-                      <button
-                        onClick={() => setTargetValue(25000000)}
-                        className="text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1.5 py-0.5 font-medium text-slate-600"
-                      >
-                        ₹2.5 Cr
-                      </button>
-                    </div>
-                  )}
+                <div className="flex justify-between items-center mb-1 flex-wrap gap-1">
+                  <label className="text-xs font-semibold text-slate-700">Target Value</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {curr === "INR" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setTargetValue(5000000)}
+                          className="text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1.5 py-0.5 font-medium text-slate-600"
+                        >
+                          ₹50L
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTargetValue(10000000)}
+                          className="text-[10px] bg-emerald-100 hover:bg-emerald-200 rounded px-1.5 py-0.5 font-bold text-emerald-800"
+                        >
+                          ₹1 Cr
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTargetValue(25000000)}
+                          className="text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1.5 py-0.5 font-medium text-slate-600"
+                        >
+                          ₹2.5 Cr
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setTargetValue(100000)}
+                          className="text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1.5 py-0.5 font-medium text-slate-600"
+                        >
+                          100K
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTargetValue(500000)}
+                          className="text-[10px] bg-emerald-100 hover:bg-emerald-200 rounded px-1.5 py-0.5 font-bold text-emerald-800"
+                        >
+                          500K
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTargetValue(1000000)}
+                          className="text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1.5 py-0.5 font-medium text-slate-600"
+                        >
+                          1M
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <input
-                  type="number"
+                <FormattedNumberInput
+                  isCurrency={true}
+                  currency={curr}
                   value={targetValue}
-                  onChange={(e) => setTargetValue(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  onChange={(val) => setTargetValue(Number(val) || 0)}
+                  placeholder="Enter target milestone"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Formatted: {formatCurrency(targetValue, curr, false)}
-                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-700">Target Month</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={36}
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Target Month</label>
+                  <FormattedNumberInput
+                    compact={true}
                     value={targetMonth}
-                    onChange={(e) => setTargetMonth(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs font-medium text-slate-800"
+                    onChange={(val) => setTargetMonth(Math.min(36, Math.max(1, Number(val) || 1)))}
+                    placeholder="12"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-700">Min Cash Reserve</label>
-                  <input
-                    type="number"
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Min Cash Reserve ({curr})</label>
+                  <FormattedNumberInput
+                    isCurrency={true}
+                    currency={curr}
+                    compact={true}
                     value={minReserve}
-                    onChange={(e) => setMinReserve(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs font-medium text-slate-800"
+                    onChange={(val) => setMinReserve(Number(val) || 0)}
+                    placeholder="0"
                   />
                 </div>
               </div>
@@ -233,7 +318,7 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
               {/* ARPU / Price */}
               <div className="pt-2 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-xs font-medium text-slate-800">
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={enablePrice}
@@ -249,21 +334,23 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
                 {enablePrice && (
                   <div className="grid grid-cols-2 gap-2 pl-5">
                     <div>
-                      <span className="text-[10px] text-slate-400">Min ({curr})</span>
-                      <input
-                        type="number"
+                      <span className="text-[10px] text-slate-400 block mb-0.5">Min ({curr})</span>
+                      <FormattedNumberInput
+                        isCurrency={true}
+                        currency={curr}
+                        compact={true}
                         value={minPrice}
-                        onChange={(e) => setMinPrice(Number(e.target.value))}
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-medium"
+                        onChange={(val) => setMinPrice(Number(val) || 0)}
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400">Max ({curr})</span>
-                      <input
-                        type="number"
+                      <span className="text-[10px] text-slate-400 block mb-0.5">Max ({curr})</span>
+                      <FormattedNumberInput
+                        isCurrency={true}
+                        currency={curr}
+                        compact={true}
                         value={maxPrice}
-                        onChange={(e) => setMaxPrice(Number(e.target.value))}
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-medium"
+                        onChange={(val) => setMaxPrice(Number(val) || 0)}
                       />
                     </div>
                   </div>
@@ -273,7 +360,7 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
               {/* Conversion Rate */}
               <div className="pt-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-xs font-medium text-slate-800">
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={enableConversion}
@@ -289,23 +376,21 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
                 {enableConversion && (
                   <div className="grid grid-cols-2 gap-2 pl-5">
                     <div>
-                      <span className="text-[10px] text-slate-400">Min (e.g. 0.02 = 2%)</span>
-                      <input
-                        type="number"
-                        step={0.005}
+                      <span className="text-[10px] text-slate-400 block mb-0.5">Min</span>
+                      <PercentageInput
+                        compact={true}
                         value={minConv}
-                        onChange={(e) => setMinConv(Number(e.target.value))}
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-medium"
+                        onChange={(val) => setMinConv(Number(val) || 0)}
+                        placeholderPercent="e.g. 2.0%"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400">Max (e.g. 0.08 = 8%)</span>
-                      <input
-                        type="number"
-                        step={0.005}
+                      <span className="text-[10px] text-slate-400 block mb-0.5">Max</span>
+                      <PercentageInput
+                        compact={true}
                         value={maxConv}
-                        onChange={(e) => setMaxConv(Number(e.target.value))}
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-medium"
+                        onChange={(val) => setMaxConv(Number(val) || 0)}
+                        placeholderPercent="e.g. 7.0%"
                       />
                     </div>
                   </div>
@@ -315,14 +400,14 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
               {/* Churn Rate */}
               <div className="pt-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-xs font-medium text-slate-800">
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={enableChurn}
                       onChange={(e) => setEnableChurn(e.target.checked)}
                       className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                     />
-                    <span>Monthly Churn Rate</span>
+                    <span>Monthly Customer Churn Rate</span>
                   </label>
                   <span className="text-[11px] text-slate-500">
                     Base: {formatPercent(baseInputs.customer_churn_rate)}
@@ -331,23 +416,70 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
                 {enableChurn && (
                   <div className="grid grid-cols-2 gap-2 pl-5">
                     <div>
-                      <span className="text-[10px] text-slate-400">Min (e.g. 0.015 = 1.5%)</span>
-                      <input
-                        type="number"
-                        step={0.005}
+                      <span className="text-[10px] text-slate-400 block mb-0.5">Min</span>
+                      <PercentageInput
+                        compact={true}
                         value={minChurn}
-                        onChange={(e) => setMinChurn(Number(e.target.value))}
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-medium"
+                        onChange={(val) => setMinChurn(Number(val) || 0)}
+                        placeholderPercent="e.g. 1.5%"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400">Max (e.g. 0.05 = 5%)</span>
-                      <input
-                        type="number"
-                        step={0.005}
+                      <span className="text-[10px] text-slate-400 block mb-0.5">Max</span>
+                      <PercentageInput
+                        compact={true}
                         value={maxChurn}
-                        onChange={(e) => setMaxChurn(Number(e.target.value))}
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-medium"
+                        onChange={(val) => setMaxChurn(Number(val) || 0)}
+                        placeholderPercent="e.g. 5.0%"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Marketing Spend / Cost Per Lead */}
+              <div className="pt-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={enableMarketing}
+                      onChange={(e) => setEnableMarketing(e.target.checked)}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>
+                      {baseInputs.acquisition_mode === "lead_based"
+                        ? `Cost Per Lead (${curr})`
+                        : `Acquisition Budget (${curr})`}
+                    </span>
+                  </label>
+                  <span className="text-[11px] text-slate-500">
+                    Base:{" "}
+                    {baseInputs.acquisition_mode === "lead_based"
+                      ? formatCurrency(baseInputs.cost_per_lead, curr)
+                      : formatCurrency(baseInputs.acquisition_budget, curr)}
+                  </span>
+                </div>
+                {enableMarketing && (
+                  <div className="grid grid-cols-2 gap-2 pl-5">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block mb-0.5">Min ({curr})</span>
+                      <FormattedNumberInput
+                        isCurrency={true}
+                        currency={curr}
+                        compact={true}
+                        value={minMarketing}
+                        onChange={(val) => setMinMarketing(Number(val) || 0)}
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block mb-0.5">Max ({curr})</span>
+                      <FormattedNumberInput
+                        isCurrency={true}
+                        currency={curr}
+                        compact={true}
+                        value={maxMarketing}
+                        onChange={(val) => setMaxMarketing(Number(val) || 0)}
                       />
                     </div>
                   </div>
@@ -398,7 +530,7 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
           {result && (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
               {/* Feasibility Status Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   {result.feasible ? (
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
@@ -419,7 +551,7 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
                   </div>
                 </div>
 
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <span className="text-xs text-slate-400">Achieved @ Month {targetMonth}</span>
                   <p className="text-lg font-bold text-slate-900">
                     {formatCurrency(result.achieved_target_value, curr, false)}
@@ -445,7 +577,7 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Proposed Assumptions vs. Baseline
                 </h4>
-                <div className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
                   <table className="w-full text-xs text-left">
                     <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                       <tr>
@@ -484,7 +616,7 @@ export const ReversePlannerView: React.FC<ReversePlannerViewProps> = ({
               </div>
 
               {/* Financial Consequences of Solution */}
-              <div className="grid grid-cols-3 gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                 <div>
                   <span className="text-[11px] text-slate-500">Ending Cash</span>
                   <p className="text-sm font-bold text-slate-900">

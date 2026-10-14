@@ -14,30 +14,57 @@ import {
   Filter,
   Sparkles,
   Zap,
+  Target,
+  Coins,
+  Check,
 } from "lucide-react";
 
 import { isModelEmpty } from "@/lib/engine";
-
-interface SignalItem {
-  id: string;
-  type: "good" | "bad" | "warning";
-  category: "Capital & Runway" | "Unit Economics" | "Retention & Churn" | "Growth & Payback";
-  title: string;
-  metricValue: string;
-  summary: string;
-  recommendation: string;
-}
+import { StrategicHelpPriority } from "@/lib/advisoryEngine";
+import { computeHealthAudit } from "@/lib/healthAudit";
+export type { SignalItem } from "@/lib/healthAudit";
 
 interface SituationAnalysisRadarProps {
   result: EngineSimulationResult;
   inputs: ModelEngineInputs;
+  helpPriority?: StrategicHelpPriority;
+  decisionGoal?: string;
 }
+
+const priorityLabels: Record<StrategicHelpPriority, { title: string; subtitle: string }> = {
+  runway_preservation: {
+    title: "Extend Cash Runway & Capital Preservation",
+    subtitle: "Focus: Minimizing net operating cash burn and maintaining minimum reserve cushion.",
+  },
+  unit_economics: {
+    title: "Optimize Unit Economics & LTV:CAC",
+    subtitle: "Focus: Accelerating CAC payback velocity and widening gross margins above 75%.",
+  },
+  scale_acquisition: {
+    title: "Scale Acquisition & Top-Line ARR Growth",
+    subtitle: "Focus: Maximizing lead conversion rates and scalable customer addition velocity.",
+  },
+  break_even: {
+    title: "Achieve Operating Cash Break-Even",
+    subtitle: "Focus: Generating enough contribution margin to fully fund payroll and opex.",
+  },
+  fundraising: {
+    title: "Investor Due Diligence & Series Readiness",
+    subtitle: "Focus: Meeting venture fundable benchmarks (Rule of 40, LTV:CAC > 3x, 18M+ runway).",
+  },
+  custom_goal: {
+    title: "Custom Strategic Objective",
+    subtitle: "Focus: Executing specific founder milestones and capital deployment targets.",
+  },
+};
 
 export const SituationAnalysisRadar: React.FC<SituationAnalysisRadarProps> = ({
   result,
   inputs,
+  helpPriority = "runway_preservation",
+  decisionGoal,
 }) => {
-  const [filterType, setFilterType] = useState<"all" | "good" | "bad" | "warning">("all");
+  const [filterType, setFilterType] = useState<"all" | "priority" | "good" | "bad" | "warning">("all");
   const { summary, projections } = result;
   const curr = inputs.currency;
 
@@ -63,258 +90,242 @@ export const SituationAnalysisRadar: React.FC<SituationAnalysisRadarProps> = ({
     );
   }
 
-  const signals: SignalItem[] = [];
-
-  // 1. Capital & Runway Evaluation
-  const hasCash = (inputs.initial_cash_balance || 0) > 0;
-  const hasOutflows = projections.some((p) => p.cash_outflows > 0);
-
-  if (hasCash) {
-    const isReserveBreached = summary.ending_cash < inputs.minimum_cash_reserve || summary.runway_months !== null;
-    if (isReserveBreached) {
-      signals.push({
-        id: "runway_breach",
-        type: "bad",
-        category: "Capital & Runway",
-        title: "Safety Cash Reserve Breached",
-        metricValue: summary.runway_months ? `Month ${summary.runway_months}` : "Deficit",
-        summary: `Projected cash balance drops below your safety floor (${formatCurrency(
-          inputs.minimum_cash_reserve,
-          curr,
-          true
-        )}). Operations risk severe insolvency under current burn rate.`,
-        recommendation: `Extend runway by trimming non-essential OpEx or securing bridge capital before Month ${
-          summary.runway_months ?? 1
-        }.`,
-      });
-    } else {
-      signals.push({
-        id: "runway_solvent",
-        type: "good",
-        category: "Capital & Runway",
-        title: "Fully Funded & Solvent Operating Runway",
-        metricValue: `> ${inputs.planning_horizon} Months`,
-        summary: `Ending liquid treasury (${formatCurrency(
-          summary.ending_cash,
-          curr,
-          true
-        )}) comfortably exceeds minimum safety reserve (${formatCurrency(
-          inputs.minimum_cash_reserve,
-          curr,
-          true
-        )}) through the full simulation.`,
-        recommendation:
-          "Operations are capital-stable; you have autonomy to reinvest operating cash flow into growth without emergency dilution pressure.",
-      });
-    }
-  } else if (hasOutflows) {
-    signals.push({
-      id: "runway_zero_cash",
-      type: "bad",
-      category: "Capital & Runway",
-      title: "Zero Operating Cash Treasury",
-      metricValue: "0 Cash",
-      summary: "Your venture has active monthly cash outflows but zero initial liquid cash balance recorded.",
-      recommendation: "Record initial cash treasury reserves or model imminent financing events to ensure solvency.",
-    });
-  }
-
-  // 2. Unit Economics (LTV : CAC) Evaluation
-  if (summary.ltv_to_cac_ratio_final !== null) {
-    if (summary.ltv_to_cac_ratio_final >= 3.0) {
-      signals.push({
-        id: "ltv_cac_high",
-        type: "good",
-        category: "Unit Economics",
-        title: "Strong LTV : CAC Multiple",
-        metricValue: `${summary.ltv_to_cac_ratio_final.toFixed(1)}x`,
-        summary: `Customer lifetime value significantly outpaces acquisition cost, well above the 3.0x venture viability benchmark.`,
-        recommendation:
-          "High unit efficiency indicates you can afford to aggressively scale paid and outbound acquisition budgets.",
-      });
-    } else if (summary.ltv_to_cac_ratio_final < 2.0) {
-      signals.push({
-        id: "ltv_cac_low",
-        type: "bad",
-        category: "Unit Economics",
-        title: "Sub-Optimal Unit Economics (< 2.0x)",
-        metricValue: `${summary.ltv_to_cac_ratio_final.toFixed(1)}x`,
-        summary: `Customer acquisition cost is unsustainably close to gross lifetime revenue. Customer additions may deplete cash faster than they generate value.`,
-        recommendation:
-          "Review acquisition channels to lower blended CAC, or increase monthly subscription price (ARPU) to expand LTV.",
-      });
-    } else {
-      signals.push({
-        id: "ltv_cac_moderate",
-        type: "warning",
-        category: "Unit Economics",
-        title: "Moderate Unit Economics (2.0x – 3.0x)",
-        metricValue: `${summary.ltv_to_cac_ratio_final.toFixed(1)}x`,
-        summary: `Unit economics are marginally viable, but leave limited cushion if customer acquisition costs rise or churn increases.`,
-        recommendation:
-          "Optimize lead conversion rate and test annual contract incentives to lift unit multiple past 3.0x.",
-      });
-    }
-  }
-
-  // 3. Gross Margin Evaluation (only if business has active revenue)
-  if (summary.final_month_mrr > 0) {
-    if (summary.average_gross_margin_pct >= 0.75) {
-      signals.push({
-        id: "margin_high",
-        type: "good",
-        category: "Unit Economics",
-        title: "Superior Gross Margin (> 75%)",
-        metricValue: `${(summary.average_gross_margin_pct * 100).toFixed(1)}%`,
-        summary: `Direct cloud hosting, payment processing, and variable servicing absorb only ${(
-          (1 - summary.average_gross_margin_pct) *
-          100
-        ).toFixed(1)}% of revenue.`,
-        recommendation:
-          "High gross margin yields strong operating gross profit to support team payroll and marketing.",
-      });
-    } else if (summary.average_gross_margin_pct < 0.6) {
-      signals.push({
-        id: "margin_low",
-        type: "bad",
-        category: "Unit Economics",
-        title: "High Delivery Cost / Compressed Gross Margin",
-        metricValue: `${(summary.average_gross_margin_pct * 100).toFixed(1)}%`,
-        summary: `Variable hosting and direct costs consume over 40% of customer receipts, putting downward pressure on contribution margin.`,
-        recommendation:
-          "Audit cloud infrastructure efficiency, renegotiate third-party API costs, and verify unit pricing tiers.",
-      });
-    }
-  }
-
-  // 4. CAC Payback Period Evaluation (only if payback is calculated and positive)
-  if (summary.cac_payback_final !== null && summary.cac_payback_final > 0) {
-    if (summary.cac_payback_final <= 12) {
-      signals.push({
-        id: "payback_fast",
-        type: "good",
-        category: "Growth & Payback",
-        title: "Rapid CAC Payback Velocity (< 12 Mos)",
-        metricValue: `${summary.cac_payback_final.toFixed(1)} Months`,
-        summary: `Acquisition spend is fully recovered in under a year, creating fast working capital recycling.`,
-        recommendation:
-          "Fast capital recycling allows reinvesting cash flow back into marketing repeatedly within the same fiscal year.",
-      });
-    } else if (summary.cac_payback_final > 18) {
-      signals.push({
-        id: "payback_slow",
-        type: "bad",
-        category: "Growth & Payback",
-        title: "Sluggish Working Capital Payback (> 18 Mos)",
-        metricValue: `${summary.cac_payback_final.toFixed(1)} Months`,
-        summary: `Taking over 18 months to recover marketing expenditure creates heavy working capital drag and elevates churn exposure.`,
-        recommendation:
-          "Offer annual upfront billing with a 10–15% discount to collect customer CAC on Day 1.",
-      });
-    } else {
-      signals.push({
-        id: "payback_moderate",
-        type: "warning",
-        category: "Growth & Payback",
-        title: "Moderate Payback Duration (12–18 Mos)",
-        metricValue: `${summary.cac_payback_final.toFixed(1)} Months`,
-        summary: `Capital payback is standard for enterprise contracts, but requires adequate liquid cash buffer to float upfront sales costs.`,
-        recommendation:
-          "Introduce expansion upsells early in the customer lifecycle to accelerate cash payback.",
-      });
-    }
-  }
-
-  // 5. Customer Retention & Churn Evaluation (only if venture has an active or starting paying customer base)
-  if (inputs.initial_paying_customers > 0 || summary.final_month_customers > 0) {
-    if (inputs.customer_churn_rate <= 0.02) {
-      signals.push({
-        id: "churn_low",
-        type: "good",
-        category: "Retention & Churn",
-        title: "Strong Customer Retention (≤ 2.0% Churn)",
-        metricValue: `${(inputs.customer_churn_rate * 100).toFixed(1)}% / mo`,
-        summary: `Low monthly customer decay minimizes revenue leakage and lets organic and paid additions compound ARR.`,
-        recommendation:
-          "High customer retention makes this an opportune time to launch expansion tiers and cross-sells.",
-      });
-    } else if (inputs.customer_churn_rate >= 0.04) {
-      signals.push({
-        id: "churn_high",
-        type: "bad",
-        category: "Retention & Churn",
-        title: "Severe Customer Attrition (≥ 4.0% Churn)",
-        metricValue: `${(inputs.customer_churn_rate * 100).toFixed(1)}% / mo`,
-        summary: `Monthly attrition of ${(inputs.customer_churn_rate * 100).toFixed(
-          1
-        )}% leaks over 38% of your customer base annually, creating an expensive treadmill.`,
-        recommendation:
-          "Conduct customer retention audits and address onboarding friction before scaling acquisition spend.",
-      });
-    } else {
-      signals.push({
-        id: "churn_moderate",
-        type: "warning",
-        category: "Retention & Churn",
-        title: "Moderate Churn Decay (2% – 4% / mo)",
-        metricValue: `${(inputs.customer_churn_rate * 100).toFixed(1)}% / mo`,
-        summary: `Attrition is within average early-stage ranges, but compound churn will become a growth bottleneck as account volume increases.`,
-        recommendation:
-          "Implement automated health scoring to flag at-risk accounts before cancellation notices.",
-      });
-    }
-  }
-
-  // 6. Break-Even & Profitability Evaluation (only if business has active revenue or opex)
-  if (summary.final_month_mrr > 0 || projections.some((p) => p.total_opex > 0)) {
-    if (summary.break_even_month !== null) {
-      signals.push({
-        id: "breakeven_reached",
-        type: "good",
-        category: "Capital & Runway",
-        title: "Operating Break-Even Achieved",
-        metricValue: `Month ${summary.break_even_month}`,
-        summary: `Revenue covers all operational overhead and payroll starting in Month ${summary.break_even_month}, achieving cash self-sufficiency.`,
-        recommendation:
-          "Reaching cash flow positivity dramatically reduces fundraising risk and maximizes founder leverage.",
-      });
-    } else {
-      signals.push({
-        id: "breakeven_unreached",
-        type: "warning",
-        category: "Capital & Runway",
-        title: "Operating Burn Throughout Planning Horizon",
-        metricValue: `No Break-Even`,
-        summary: `Business remains net cash-flow negative across all ${inputs.planning_horizon} months under current growth velocity.`,
-        recommendation:
-          "Run reverse planning to identify the exact customer count or ARPU required to achieve break-even before cash reserve breaches.",
-      });
-    }
-  }
-
-  const goodSignals = signals.filter((s) => s.type === "good");
-  const badSignals = signals.filter((s) => s.type === "bad");
-  const warningSignals = signals.filter((s) => s.type === "warning");
+  const audit = computeHealthAudit(inputs, result, helpPriority);
+  const { signals, goodSignals, badSignals, warningSignals, goalPrioritySignals, overallGrade, quantifiedTargets } = audit;
+  const {
+    estimatedMonthlyBurn,
+    target18MBurn,
+    requiredBurnCut,
+    currentRunway,
+    requiredCapitalBridge,
+    currentLtvCac,
+    targetCacFor35x,
+    requiredCacCut,
+    targetArpuFor35x,
+    requiredArpuExpansion,
+    current12MArr,
+    targetArr,
+    targetTotalCustomers,
+    requiredCustomerAddsDelta,
+    requiredMonthlyLeads,
+    requiredLeadsDelta,
+    effectiveConv,
+    totalFixedOverhead,
+    requiredBreakEvenAccounts,
+    customerAccountShortfall,
+    requiredAdditionalMrr,
+    runwayGap,
+    ltvGap,
+    gmGap,
+  } = quantifiedTargets;
 
   const displayedSignals = signals.filter((s) => {
     if (filterType === "all") return true;
+    if (filterType === "priority") return s.isGoalPriority;
     return s.type === filterType;
   });
 
-  // Overall Health Diagnosis
-  const overallGrade =
-    badSignals.length === 0
-      ? { label: "Grade A • Strong & Resilient", color: "text-emerald-700 bg-emerald-50 border-emerald-200" }
-      : badSignals.length === 1
-      ? { label: "Grade B • Viable with Key Focus", color: "text-amber-800 bg-amber-50 border-amber-200" }
-      : { label: "Grade C • Urgent Interventions Needed", color: "text-rose-800 bg-rose-50 border-rose-200" };
-
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-      {/* Header & Diagnosis Banner */}
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+      {/* Strategic Focus Header Banner */}
+      {helpPriority && priorityLabels[helpPriority] && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+              <Target className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                  Active Advisory Objective (Section 5)
+                </span>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-extrabold text-emerald-800">
+                  Prioritized Engine
+                </span>
+              </div>
+              <h4 className="text-xs font-bold text-slate-900 mt-0.5 break-words">
+                {priorityLabels[helpPriority].title}
+              </h4>
+              <p className="text-[11px] text-slate-600 mt-0.5 break-words leading-relaxed">
+                {decisionGoal && decisionGoal.trim()
+                  ? `Goal Context: "${decisionGoal}" • ${priorityLabels[helpPriority].subtitle}`
+                  : priorityLabels[helpPriority].subtitle}
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-semibold text-emerald-700 bg-white border border-emerald-200 px-2.5 py-1 rounded-lg shrink-0 self-start sm:self-auto">
+            Dynamic Diagnostics Active
+          </span>
+        </div>
+      )}
+
+      {/* Dynamic Section 5 Quantified Action Plan & Requirements Card */}
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5 space-y-3.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-200 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-xs">
+              <Zap className="h-4 w-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                Quantified Requirements for: {priorityLabels[helpPriority].title}
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                Actionable targets and exact financial improvements required based on your selected priority
+              </p>
+            </div>
+          </div>
+          <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-0.5 border border-emerald-200 shrink-0 self-start sm:self-auto">
+            Target Action Plan
+          </span>
+        </div>
+
+        {/* 3 Metric Benchmark Tiles */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {helpPriority === "runway_preservation" && (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Current Monthly Net Burn</span>
+                <span className="text-sm font-extrabold text-rose-600 mt-0.5 block">{formatCurrency(estimatedMonthlyBurn, curr, false)} / mo</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Allowable for 18M: ≤ {formatCurrency(target18MBurn, curr, false)} / mo</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Required Burn Cut</span>
+                <span className={`text-sm font-extrabold ${requiredBurnCut > 0 ? "text-amber-700" : "text-emerald-700"} mt-0.5 block`}>
+                  {requiredBurnCut > 0 ? `-${formatCurrency(requiredBurnCut, curr, false)} / mo` : "0 (Runway Solvent)"}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">{requiredBurnCut > 0 ? `${Math.round((requiredBurnCut / Math.max(1, estimatedMonthlyBurn)) * 100)}% burn reduction needed` : "Runway exceeds 18M buffer"}</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Capital Bridge Target</span>
+                <span className="text-sm font-extrabold text-emerald-700 mt-0.5 block">
+                  {requiredCapitalBridge > 0 ? formatCurrency(requiredCapitalBridge, curr, true) : "Self-Funded"}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">To guarantee 18-month solvency buffer</span>
+              </div>
+            </>
+          )}
+
+          {helpPriority === "unit_economics" && (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Current LTV : CAC Multiple</span>
+                <span className={`text-sm font-extrabold ${currentLtvCac >= 3.5 ? "text-emerald-700" : currentLtvCac >= 2.0 ? "text-amber-700" : "text-rose-700"} mt-0.5 block`}>
+                  {currentLtvCac.toFixed(1)}x
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Target Benchmark: ≥ 3.5x Multiple</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Target CAC Ceiling</span>
+                <span className="text-sm font-extrabold text-slate-900 mt-0.5 block">
+                  ≤ {formatCurrency(targetCacFor35x, curr, false)}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  {requiredCacCut > 0 ? `Required CAC cut: -${formatCurrency(requiredCacCut, curr, false)}` : "CAC meets target multiple"}
+                </span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Target ARPU Expansion</span>
+                <span className="text-sm font-extrabold text-emerald-700 mt-0.5 block">
+                  {requiredArpuExpansion > 0 ? `+${formatCurrency(requiredArpuExpansion, curr, false)} / mo` : "Pricing Optimal"}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Alternative to reach 3.5x multiple</span>
+              </div>
+            </>
+          )}
+
+          {helpPriority === "scale_acquisition" && (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">12-Month ARR Target</span>
+                <span className="text-sm font-extrabold text-emerald-700 mt-0.5 block">{formatCurrency(targetArr, curr, true)}</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Current ARR: {formatCurrency(current12MArr, curr, true)}</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Customer Additions Gap</span>
+                <span className="text-sm font-extrabold text-slate-900 mt-0.5 block">+{requiredCustomerAddsDelta} Accounts</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Total Target: {targetTotalCustomers} active clients</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Required Lead Volume</span>
+                <span className="text-sm font-extrabold text-slate-900 mt-0.5 block">+{requiredLeadsDelta} Leads / mo</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">At current {(effectiveConv * 100).toFixed(1)}% conversion rate</span>
+              </div>
+            </>
+          )}
+
+          {helpPriority === "break_even" && (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Break-Even Account Target</span>
+                <span className="text-sm font-extrabold text-emerald-700 mt-0.5 block">{requiredBreakEvenAccounts} Accounts</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Current Paying: {inputs.initial_paying_customers} accounts</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Account Shortfall Gap</span>
+                <span className="text-sm font-extrabold text-amber-700 mt-0.5 block">+{customerAccountShortfall} Accounts</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Needed to cover all fixed costs</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Required Additional MRR</span>
+                <span className="text-sm font-extrabold text-slate-900 mt-0.5 block">+{formatCurrency(requiredAdditionalMrr, curr, false)} / mo</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Total Fixed Burden: {formatCurrency(totalFixedOverhead, curr, false)} / mo</span>
+              </div>
+            </>
+          )}
+
+          {helpPriority === "fundraising" && (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Diligence Runway Buffer</span>
+                <span className={`text-sm font-extrabold ${runwayGap === 0 ? "text-emerald-700" : "text-amber-700"} mt-0.5 block`}>
+                  {currentRunway} Mos (Target: 18 Mos)
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">{runwayGap > 0 ? `Gap: +${runwayGap} Mos needed` : "Runway satisfies institutional standard"}</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">LTV : CAC Multiple</span>
+                <span className={`text-sm font-extrabold ${currentLtvCac >= 3.0 ? "text-emerald-700" : "text-rose-700"} mt-0.5 block`}>
+                  {currentLtvCac.toFixed(1)}x (Target: ≥ 3.0x)
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">{ltvGap > 0 ? `Gap: +${ltvGap.toFixed(1)}x required` : "Unit multiple is top-quartile"}</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Gross Margin Standard</span>
+                <span className={`text-sm font-extrabold ${summary.average_gross_margin_pct >= 0.7 ? "text-emerald-700" : "text-amber-700"} mt-0.5 block`}>
+                  {(summary.average_gross_margin_pct * 100).toFixed(1)}% (Target: ≥ 70%)
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">{gmGap > 0 ? `Gap: +${gmGap}% margin expansion` : "Gross margin exceeds SaaS standard"}</span>
+              </div>
+            </>
+          )}
+
+          {helpPriority === "custom_goal" && (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Ending Cash Balance</span>
+                <span className="text-sm font-extrabold text-slate-900 mt-0.5 block">{formatCurrency(summary.ending_cash, curr, true)}</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Safety Floor: {formatCurrency(inputs.minimum_cash_reserve, curr, true)}</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Closing Customers</span>
+                <span className="text-sm font-extrabold text-emerald-700 mt-0.5 block">{summary.final_month_customers} Accounts</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Starting: {inputs.initial_paying_customers} accounts</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Ending ARR Run Rate</span>
+                <span className="text-sm font-extrabold text-slate-900 mt-0.5 block">{formatCurrency(summary.final_month_arr, curr, true)}</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Gross Margin: {(summary.average_gross_margin_pct * 100).toFixed(1)}%</span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Header & Diagnosis Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-emerald-600" />
               <span>Current Situation Analysis &amp; Health Radar</span>
@@ -341,6 +352,19 @@ export const SituationAnalysisRadar: React.FC<SituationAnalysisRadarProps> = ({
           >
             All Findings ({signals.length})
           </button>
+          {goalPrioritySignals.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterType("priority")}
+              className={`rounded-xl px-3 py-1.5 font-semibold transition-all border ${
+                filterType === "priority"
+                  ? "bg-emerald-800 text-white border-emerald-800 shadow-sm"
+                  : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+              }`}
+            >
+              🎯 Goal Focus ({goalPrioritySignals.length})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setFilterType("good")}
@@ -384,51 +408,73 @@ export const SituationAnalysisRadar: React.FC<SituationAnalysisRadarProps> = ({
           const isBad = item.type === "bad";
 
           const cardBorder = isGood
-            ? "border-emerald-200 bg-emerald-50/30"
+            ? "border-emerald-200/90 bg-emerald-50/25"
             : isBad
-            ? "border-rose-200 bg-rose-50/30"
-            : "border-amber-200 bg-amber-50/30";
+            ? "border-rose-200/90 bg-rose-50/25"
+            : "border-amber-200/90 bg-amber-50/25";
 
           const badgeBg = isGood
-            ? "bg-emerald-100 text-emerald-800"
+            ? "bg-emerald-100 text-emerald-800 border border-emerald-200/70"
             : isBad
-            ? "bg-rose-100 text-rose-800"
-            : "bg-amber-100 text-amber-800";
+            ? "bg-rose-100 text-rose-800 border border-rose-200/70"
+            : "bg-amber-100 text-amber-800 border border-amber-200/70";
+
+          const iconBg = isGood
+            ? "bg-emerald-100/80 text-emerald-700"
+            : isBad
+            ? "bg-rose-100/80 text-rose-700"
+            : "bg-amber-100/80 text-amber-700";
 
           const Icon = isGood ? CheckCircle2 : isBad ? XCircle : AlertTriangle;
-          const iconColor = isGood ? "text-emerald-600" : isBad ? "text-rose-600" : "text-amber-600";
 
           return (
             <div
               key={item.id}
-              className={`rounded-2xl border p-4.5 flex flex-col justify-between space-y-3 transition-all hover:shadow-sm ${cardBorder}`}
+              className={`rounded-2xl border p-4 sm:p-5 flex flex-col justify-between gap-3.5 transition-all hover:shadow-md ${cardBorder} min-w-0 break-words`}
             >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-3 min-w-0">
+                {/* Header bar: category + status badges */}
+                <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-200/60 pb-2.5 min-w-0">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                     {item.category}
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${badgeBg}`}>
-                    {isGood ? "Strength" : isBad ? "Critical Risk" : "Watchlist"}
-                  </span>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${iconColor}`} />
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 leading-snug">{item.title}</h4>
-                    <p className="text-xs font-extrabold text-slate-800 mt-0.5">{item.metricValue}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                    {item.isGoalPriority && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-700 text-white px-2 py-0.5 text-[9px] font-extrabold tracking-tight shadow-2xs">
+                        <span>🎯</span> Focus Area
+                      </span>
+                    )}
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-extrabold whitespace-nowrap ${badgeBg}`}>
+                      {isGood ? "Strength" : isBad ? "Critical Risk" : "Watchlist"}
+                    </span>
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-600 leading-relaxed">{item.summary}</p>
+                {/* Metric Title & Value with enclosed icon badge */}
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-2xs mt-0.5 ${iconBg}`}>
+                    <Icon className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-bold text-slate-900 leading-snug break-words">{item.title}</h4>
+                    <p className="text-xs font-extrabold text-slate-800 mt-1 break-words">
+                      <span className="text-slate-400 font-normal mr-1">Signal:</span>
+                      {item.metricValue}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <p className="text-xs text-slate-600 leading-relaxed break-words">{item.summary}</p>
               </div>
 
-              <div className="rounded-xl border border-slate-200/60 bg-white/80 p-2.5 text-[11px] text-slate-700 space-y-0.5">
-                <span className="font-bold text-slate-900 block text-[10px] uppercase tracking-wider">
+              {/* CFO Recommendation */}
+              <div className="rounded-xl border border-slate-200/80 bg-white/95 p-3.5 text-[11px] text-slate-700 space-y-1.5 min-w-0 break-words shadow-2xs">
+                <span className="font-extrabold text-slate-900 block text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
                   CFO Recommendation
                 </span>
-                <p className="leading-relaxed text-slate-600">{item.recommendation}</p>
+                <p className="leading-relaxed text-slate-600 break-words">{item.recommendation}</p>
               </div>
             </div>
           );
@@ -437,4 +483,3 @@ export const SituationAnalysisRadar: React.FC<SituationAnalysisRadarProps> = ({
     </div>
   );
 };
-

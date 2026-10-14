@@ -14,24 +14,24 @@ describe("AI Client Rate Limiting Engine", () => {
     localStorage.clear();
   });
 
-  it("initializes with 5 daily free queries and non-exceeded quota", () => {
-    const status = getAiRateLimitStatus();
+  it("initializes with 5 daily free queries and non-exceeded quota in production mode", () => {
+    const status = getAiRateLimitStatus(true);
     expect(status.count).toBe(0);
     expect(status.remaining).toBe(DAILY_LIMIT);
     expect(status.limit).toBe(5);
     expect(status.isQuotaExceeded).toBe(false);
   });
 
-  it("increments usage and decreases remaining queries", () => {
-    const s1 = incrementAiUsage();
+  it("increments usage and decreases remaining queries in production mode", () => {
+    const s1 = incrementAiUsage(true);
     expect(s1.count).toBe(1);
     expect(s1.remaining).toBe(4);
     expect(s1.isQuotaExceeded).toBe(false);
 
-    incrementAiUsage();
-    incrementAiUsage();
-    incrementAiUsage();
-    const s5 = incrementAiUsage();
+    incrementAiUsage(true);
+    incrementAiUsage(true);
+    incrementAiUsage(true);
+    const s5 = incrementAiUsage(true);
     expect(s5.count).toBe(5);
     expect(s5.remaining).toBe(0);
     expect(s5.isQuotaExceeded).toBe(true);
@@ -41,9 +41,15 @@ describe("AI Client Rate Limiting Engine", () => {
     expect(raw.count).toBe(5);
   });
 
+  it("provides unlimited queries in local environment without blocking", () => {
+    const status = getAiRateLimitStatus(false);
+    expect(status.remaining).toBe(999999);
+    expect(status.isQuotaExceeded).toBe(false);
+  });
+
   it("matches exact required quota exceeded warning string", () => {
     expect(QUOTA_EXCEEDED_MESSAGE).toBe(
-      "You've used your 5 daily demo AI questions. Deterministic calculations and PDF generation remain unlimited!"
+      "Daily advisory limit reached. Calculations and PDF generation remain unlimited!"
     );
   });
 });

@@ -3,54 +3,56 @@
 import React, { useState, useEffect } from "react";
 
 interface PercentageInputProps {
-  label: string;
-  value: string; // The decimal value stored in parent state (e.g. "0.035" for 3.5%)
+  label?: string;
+  value: string | number; // Decimal ratio stored in parent state (e.g. 0.035 for 3.5%)
   onChange: (decimalRatio: string) => void;
+  placeholder?: string;
   placeholderPercent?: string;
   placeholderDecimal?: string;
   helperText?: string;
   disabled?: boolean;
+  compact?: boolean;
   className?: string;
   id?: string;
 }
 
+/**
+ * Purely Percentage-Driven Input Component.
+ * Users enter standard percentage figures (e.g. 3.5 for 3.5%),
+ * and it communicates decimal ratios (0.035) to parent states.
+ * Free of cramped mode toggles so full labels remain crystal clear.
+ */
 export const PercentageInput: React.FC<PercentageInputProps> = ({
   label,
   value,
   onChange,
-  placeholderPercent = "e.g. 3.5",
-  placeholderDecimal = "e.g. 0.035",
+  placeholder = "e.g. 3.5",
+  placeholderPercent,
   helperText,
   disabled = false,
+  compact = false,
   className = "",
   id,
 }) => {
-  // Mode toggle: 'percent' (e.g. 3.5%) vs 'decimal' (e.g. 0.035)
-  const [mode, setMode] = useState<"percent" | "decimal">("percent");
   const [localInput, setLocalInput] = useState<string>("");
 
-  // Keep local input in sync when external decimal value changes
+  // Sync internal display when external decimal value updates
   useEffect(() => {
-    if (!value || value === "") {
+    if (value === undefined || value === null || value === "") {
       setLocalInput("");
       return;
     }
 
     const num = Number(value);
     if (isNaN(num)) {
-      setLocalInput(value);
+      setLocalInput(String(value));
       return;
     }
 
-    if (mode === "percent") {
-      // e.g. 0.035 -> 3.5
-      // Clean up floating point precision issues like 0.035 * 100 = 3.5000000000000004
-      const pct = parseFloat((num * 100).toFixed(4));
-      setLocalInput(String(pct));
-    } else {
-      setLocalInput(String(num));
-    }
-  }, [value, mode]);
+    // Convert decimal to clean percentage string (0.035 -> "3.5")
+    const pct = parseFloat((num * 100).toFixed(4));
+    setLocalInput(String(pct));
+  }, [value]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
@@ -61,7 +63,7 @@ export const PercentageInput: React.FC<PercentageInputProps> = ({
       return;
     }
 
-    // Check if user accidentally pasted '%' sign
+    // Clean any pasted % signs
     const cleaned = raw.replace("%", "").trim();
     const num = Number(cleaned);
 
@@ -70,75 +72,42 @@ export const PercentageInput: React.FC<PercentageInputProps> = ({
       return;
     }
 
-    if (mode === "percent") {
-      // 3.5% -> 0.035
-      const decimalVal = parseFloat((num / 100).toFixed(6));
-      onChange(String(decimalVal));
-    } else {
-      onChange(String(num));
-    }
+    // Convert percentage to decimal ratio (3.5% -> 0.035)
+    const decimalVal = parseFloat((num / 100).toFixed(6));
+    onChange(String(decimalVal));
   };
 
-  const handleModeSwitch = (newMode: "percent" | "decimal") => {
-    if (newMode === mode) return;
-    setMode(newMode);
-  };
+  const effectivePlaceholder = placeholderPercent || placeholder;
+  const paddingClass = compact ? "py-1.5 pl-2.5 pr-6 text-xs" : "h-10 pl-3 pr-8 text-xs";
 
   return (
-    <div className={`space-y-1.5 ${className}`}>
-      <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-xs font-semibold text-slate-700 truncate">
+    <div className={`space-y-1 ${className}`}>
+      {label && (
+        <label htmlFor={id} className="text-xs font-semibold text-slate-700 block">
           {label}
         </label>
-        
-        {/* % vs Decimal Toggle Pills */}
-        <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-[10px] shrink-0 font-bold">
-          <button
-            type="button"
-            onClick={() => handleModeSwitch("percent")}
-            className={`rounded px-1.5 py-0.5 transition-all ${
-              mode === "percent"
-                ? "bg-white text-emerald-800 shadow-sm border border-slate-200/60"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-            title="Enter as Percentage (e.g. 3.5%)"
-          >
-            % Percent
-          </button>
-          <button
-            type="button"
-            onClick={() => handleModeSwitch("decimal")}
-            className={`rounded px-1.5 py-0.5 transition-all ${
-              mode === "decimal"
-                ? "bg-white text-emerald-800 shadow-sm border border-slate-200/60"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-            title="Enter as Decimal Ratio (e.g. 0.035)"
-          >
-            0.xx Decimal
-          </button>
-        </div>
-      </div>
+      )}
 
-      <div className="relative flex items-center">
+      <div className="relative rounded-xl shadow-xs">
         <input
           id={id}
           type="number"
-          step={mode === "percent" ? "0.1" : "0.005"}
+          step="any"
           min="0"
+          disabled={disabled}
           value={localInput}
           onChange={handleInputChange}
-          placeholder={mode === "percent" ? placeholderPercent : placeholderDecimal}
-          disabled={disabled}
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-3 pr-10 text-xs font-semibold text-slate-900 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+          placeholder={effectivePlaceholder}
+          className={`w-full rounded-xl border border-slate-200 bg-slate-50 font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all disabled:opacity-50 ${paddingClass}`}
         />
-        <span className="absolute right-3 text-xs font-bold text-slate-400 select-none pointer-events-none">
-          {mode === "percent" ? "%" : "dec"}
-        </span>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5">
+          <span className="text-xs font-bold text-slate-400">%</span>
+        </div>
       </div>
 
-      {helperText && <span className="text-[10px] text-slate-400 block">{helperText}</span>}
+      {helperText && (
+        <span className="text-[10px] text-slate-400 block leading-tight">{helperText}</span>
+      )}
     </div>
   );
 };
-

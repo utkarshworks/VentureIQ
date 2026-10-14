@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 
 export const metadata: Metadata = {
   title: "VentureIQ | Startup Financial & Unit Economics Simulator",
@@ -15,6 +16,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased selection:bg-brand-500 selection:text-white">
         {children}
+        <CookieConsentBanner />
       </body>
     </html>
   );

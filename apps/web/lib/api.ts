@@ -111,8 +111,9 @@ export async function runTornadoAnalysis(
 export async function requestAIExplanation(
   inputs: ModelEngineInputs,
   query?: string,
-  userApiKey?: string
-): Promise<{ explanation: string; disclaimer?: string; model?: string }> {
+  userApiKey?: string,
+  helpPriority?: string
+): Promise<{ explanation: string; disclaimer?: string; model?: string; advisory?: any }> {
   const res = await fetch("/api/ai", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -120,6 +121,7 @@ export async function requestAIExplanation(
       inputs,
       query,
       userApiKey,
+      helpPriority,
     }),
   });
   if (!res.ok) {

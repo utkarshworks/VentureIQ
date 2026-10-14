@@ -180,7 +180,7 @@ export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulatio
 
     // 4. OpEx & Payroll & Acquisition
     let payrollCost = 0;
-    for (const role of inputs.hiring_roles) {
+    for (const role of (inputs.hiring_roles || [])) {
       if (m >= role.start_month) {
         const yearsActive = Math.floor((m - role.start_month) / 12);
         const salary = role.monthly_salary * Math.pow(1 + role.annual_increase_rate, yearsActive);
@@ -215,9 +215,12 @@ export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulatio
     }
 
     // 5. Cash Flow
-    const collRate = Math.max(0, Math.min(1, inputs.cash_collection_rate));
+    const rawColl = inputs.cash_collection_rate !== undefined && inputs.cash_collection_rate !== null && !isNaN(inputs.cash_collection_rate)
+      ? inputs.cash_collection_rate
+      : 1.0;
+    const collRate = Math.max(0, Math.min(1, rawColl));
     let inflows = mrr * collRate;
-    for (const event of inputs.financing_events) {
+    for (const event of (inputs.financing_events || [])) {
       if (event.month === m) {
         inflows += event.amount;
       }
@@ -247,21 +250,36 @@ export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulatio
     }
 
     // 6. Unit Economics
-    const blendedCac = newCustomers > 0 ? Math.round((acqSpend / newCustomers) * 100) / 100 : null;
+    const dynamicCac = newCustomers > 0 && acqSpend > 0 ? Math.round((acqSpend / newCustomers) * 100) / 100 : null;
+    const fallbackCac =
+      inputs.target_cac > 0
+        ? inputs.target_cac
+        : inputs.cost_per_lead > 0 && inputs.lead_conversion_rate > 0
+        ? Math.round((inputs.cost_per_lead / inputs.lead_conversion_rate) * 100) / 100
+        : null;
+    const blendedCac = dynamicCac;
+    const effectiveCac = dynamicCac ?? fallbackCac;
+
     const monthlyGpPerCust = arpu * grossMarginPct;
     const cacPayback =
-      blendedCac !== null && monthlyGpPerCust > 0
-        ? Math.round((blendedCac / monthlyGpPerCust) * 10) / 10
+      effectiveCac !== null && monthlyGpPerCust > 0
+        ? Math.round((effectiveCac / monthlyGpPerCust) * 10) / 10
         : null;
 
+    // Customer Lifetime & LTV:
+    // If churnRate > 0: customer lifetime in months = min(60, 1 / churnRate)
+    // If churnRate === 0: default to 36 months (or planning horizon)
+    const effectiveLifetimeMonths =
+      churnRate > 0 ? Math.min(60, 1 / churnRate) : Math.max(24, inputs.planning_horizon || 24);
+
     let simplifiedLtv: number | null = null;
-    if (churnRate > 0 && monthlyGpPerCust > 0) {
-      simplifiedLtv = Math.round((monthlyGpPerCust / churnRate) * 100) / 100;
+    if (monthlyGpPerCust > 0) {
+      simplifiedLtv = Math.round(monthlyGpPerCust * effectiveLifetimeMonths * 100) / 100;
     }
 
     const ltvToCac =
-      simplifiedLtv !== null && blendedCac !== null && blendedCac > 0
-        ? Math.round((simplifiedLtv / blendedCac) * 10) / 10
+      simplifiedLtv !== null && effectiveCac !== null && effectiveCac > 0
+        ? Math.round((simplifiedLtv / effectiveCac) * 10) / 10
         : null;
 
     const breakEvenRev =
@@ -321,6 +339,14 @@ export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulatio
       ? `Reserve breached in Month ${firstReserveBreachMonth}`
       : `Healthy (> ${inputs.planning_horizon} months)`;
 
+  const fallbackCacSummary =
+    inputs.target_cac > 0
+      ? inputs.target_cac
+      : inputs.cost_per_lead > 0 && inputs.lead_conversion_rate > 0
+      ? Math.round((inputs.cost_per_lead / inputs.lead_conversion_rate) * 100) / 100
+      : null;
+  const finalSummaryCac = finalP.blended_cac ?? fallbackCacSummary;
+
   const summary: EngineSummary = {
     final_month_mrr: finalP.mrr,
     final_month_arr: finalP.arr_run_rate,
@@ -333,10 +359,18 @@ export function simulateModelLocally(inputs: ModelEngineInputs): EngineSimulatio
     break_even_month: breakEvenMonth,
     average_gross_margin_pct: Math.round(avgGm * 1000) / 1000,
     average_contribution_margin_pct: Math.round(avgCm * 1000) / 1000,
-    blended_cac_final: finalP.blended_cac,
+    blended_cac_final: finalSummaryCac,
     simplified_ltv_final: finalP.simplified_ltv,
-    ltv_to_cac_ratio_final: finalP.ltv_to_cac_ratio,
-    cac_payback_final: finalP.cac_payback_months,
+    ltv_to_cac_ratio_final:
+      finalP.ltv_to_cac_ratio ??
+      (finalP.simplified_ltv !== null && finalSummaryCac !== null && finalSummaryCac > 0
+        ? Math.round((finalP.simplified_ltv / finalSummaryCac) * 10) / 10
+        : null),
+    cac_payback_final:
+      finalP.cac_payback_months ??
+      (finalSummaryCac !== null && inputs.arpu * avgGm > 0
+        ? Math.round((finalSummaryCac / (inputs.arpu * avgGm)) * 10) / 10
+        : null),
     cohort_ltv_36m: null,
   };
 

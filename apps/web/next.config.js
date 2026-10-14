@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: ["pdf-parse"],
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   async rewrites() {
     return [
       {
@@ -13,4 +13,3 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
-
