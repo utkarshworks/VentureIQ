@@ -1,0 +1,19 @@
+{
+  "name": "signaliq",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --prefix apps/web",
+    "build": "npm run build --prefix apps/web",
+    "start": "npm run start --prefix apps/web",
+    "test": "npm run test --prefix apps/web"
+  },
+  "dependencies": {
+    "next": "^15.1.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
