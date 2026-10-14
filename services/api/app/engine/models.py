@@ -183,3 +183,4 @@ class EngineSimulationResult(BaseModel):
     projections: List[MonthlyProjection]
     summary: EngineSummary
     warnings: List[ModelWarning] = Field(default_factory=list)
+

@@ -294,3 +294,4 @@ export const CashFlowHiringView: React.FC<CashFlowHiringViewProps> = ({
     </div>
   );
 };
+

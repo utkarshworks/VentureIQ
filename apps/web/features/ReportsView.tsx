@@ -199,3 +199,4 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ inputs, result }) => {
     </div>
   );
 };
+

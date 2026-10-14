@@ -109,3 +109,4 @@ async def explain_model_results(
             "explanation": fallback_text,
             "disclaimer": f"Fell back to rule engine: {str(e)}",
         }
+

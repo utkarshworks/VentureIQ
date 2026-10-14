@@ -90,3 +90,4 @@ def test_reverse_planner_infeasible_target():
     assert len(result.binding_constraints) > 0
     # Independent verification flag remains true because simulation ran cleanly
     assert result.independent_verification_passed is True
+

@@ -67,3 +67,4 @@ class UserRepository:
         if row:
             return row[0], row[1]
         return None
+

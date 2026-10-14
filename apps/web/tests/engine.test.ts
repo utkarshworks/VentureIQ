@@ -37,3 +37,4 @@ describe("Frontend Financial Simulation Engine", () => {
     expect(result.projections[0].blended_cac).toBeNull();
   });
 });
+

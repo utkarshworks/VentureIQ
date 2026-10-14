@@ -45,3 +45,4 @@ def calculate_customer_movement(
     avg_active_customers = (opening_customers + closing_customers) / 2.0
 
     return churned_customers, new_customers, closing_customers, avg_active_customers
+

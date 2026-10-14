@@ -140,3 +140,4 @@ async def run_saved_model(
     )
 
     return sim_result
+

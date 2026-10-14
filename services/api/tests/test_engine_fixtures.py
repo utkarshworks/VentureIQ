@@ -126,3 +126,4 @@ def test_hand_calculated_model_fixture():
     # Payroll starts in Month 2: ₹92,000
     assert p2.payroll_cost == 92000.0
     assert p2.beginning_cash == 1037125.0
+

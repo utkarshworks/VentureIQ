@@ -40,3 +40,4 @@ describe("Currency and Number Formatters", () => {
     expect(formatPercent(0.852, 1)).toBe("85.2%");
   });
 });
+

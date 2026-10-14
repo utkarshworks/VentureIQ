@@ -108,3 +108,4 @@ def calculate_cohort_ltv(
         total_ltv += (survival_prob * monthly_gp) / discount_factor
 
     return total_ltv
+

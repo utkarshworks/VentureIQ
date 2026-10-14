@@ -21,3 +21,4 @@ async def readiness(db: AsyncSession = Depends(get_db)):
         return {"status": "ready", "database": "connected"}
     except Exception as e:
         return {"status": "degraded", "database": str(e)}
+

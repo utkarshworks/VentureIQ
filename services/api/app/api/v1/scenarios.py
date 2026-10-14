@@ -105,3 +105,4 @@ async def compare_all_scenarios(
             )
 
     return compare_scenarios(base_inputs, scenario_configs)
+

@@ -62,3 +62,4 @@ async def save_solution_scenario(
     if not scenario:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Financial model not found")
     return {"message": "Reverse planning solution saved as scenario successfully", "scenario_id": scenario.id}
+

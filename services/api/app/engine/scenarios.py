@@ -146,3 +146,4 @@ def compare_scenarios(
         differing_assumptions=differing_assumptions,
         monthly_trajectories=monthly_trajectories,
     )
+

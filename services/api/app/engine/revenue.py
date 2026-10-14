@@ -30,3 +30,4 @@ def calculate_monthly_revenue(
     arr_run_rate = mrr * 12.0
 
     return base_mrr, expansion_mrr, contraction_mrr, mrr, arr_run_rate
+

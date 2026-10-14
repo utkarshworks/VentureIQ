@@ -8,6 +8,7 @@ interface NavbarProps {
   companyName: string;
   currency: CurrencyCode;
   onCurrencyChange: (c: CurrencyCode) => void;
+  onOpenIntake: () => void;
   onOpenAI: () => void;
   onExportCsv: () => void;
   onExportPdf: () => void;
@@ -17,6 +18,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   companyName,
   currency,
   onCurrencyChange,
+  onOpenIntake,
   onOpenAI,
   onExportCsv,
   onExportPdf,
@@ -58,6 +60,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           ))}
         </div>
 
+        {/* Analyze Startup / Intake Button */}
+        <button
+          onClick={onOpenIntake}
+          className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-all shadow-sm"
+        >
+          <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+          <span>Analyze Your Startup</span>
+        </button>
+
         {/* AI Explainer Button */}
         <button
           onClick={onOpenAI}
@@ -83,10 +94,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="Download executive brief PDF"
           >
             <FileText className="h-3.5 w-3.5 text-slate-300" />
-            <span>PDF Report</span>
+            <span>Download PDF</span>
           </button>
         </div>
       </div>
     </header>
   );
 };
+

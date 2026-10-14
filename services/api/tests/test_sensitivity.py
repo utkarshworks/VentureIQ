@@ -57,3 +57,4 @@ def test_tornado_analysis_ranking():
     for i in range(len(res.drivers) - 1):
         assert res.drivers[i].spread >= res.drivers[i + 1].spread
         assert res.drivers[i].elasticity_rank == i + 1
+

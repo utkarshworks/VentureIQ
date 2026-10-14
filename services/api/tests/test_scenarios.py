@@ -50,3 +50,4 @@ def test_scenario_comparison_hierarchy():
     assert "opt" in result.differing_assumptions
     assert "arpu" in result.differing_assumptions["opt"]
     assert "customer_churn_rate" in result.differing_assumptions["opt"]
+

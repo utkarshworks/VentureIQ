@@ -296,3 +296,4 @@ export const ScenariosView: React.FC<ScenariosViewProps> = ({
     </div>
   );
 };
+

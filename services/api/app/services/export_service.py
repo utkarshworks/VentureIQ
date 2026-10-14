@@ -235,3 +235,4 @@ def generate_pdf_report(
 
     doc.build(elements)
     return buffer.getvalue()
+

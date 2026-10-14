@@ -52,3 +52,4 @@ def calculate_opex_and_payroll(
     operating_profit = gross_profit - total_opex
 
     return payroll_cost, acquisition_spend, fixed_opex, total_opex, operating_profit
+

@@ -68,3 +68,4 @@ def calculate_cogs_and_margins(
         contribution_margin,
         contribution_margin_pct,
     )
+

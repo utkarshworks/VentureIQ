@@ -114,3 +114,4 @@ def test_insolvency_detection():
     result = simulate_model(inputs)
     assert result.summary.runway_months == 1
     assert any(w.code == "INSOLVENCY_RISK" for w in result.warnings)
+

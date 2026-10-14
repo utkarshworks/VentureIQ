@@ -144,3 +144,4 @@ class AuditEvent(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     financial_model = relationship("FinancialModel", back_populates="audit_events")
+

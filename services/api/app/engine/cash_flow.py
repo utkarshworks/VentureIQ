@@ -58,3 +58,4 @@ def calculate_monthly_cash_flow(
         is_cash_reserve_breached,
         is_cash_negative,
     )
+
