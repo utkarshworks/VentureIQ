@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { ModelEngineInputs, CurrencyCode } from "@/types/model";
 import { DEFAULT_SAAS_MODEL } from "@/lib/defaultModel";
 import { simulateModelLocally } from "@/lib/engine";
@@ -22,7 +22,7 @@ import { CashFlowHiringView } from "@/features/CashFlowHiringView";
 import { ReportsView } from "@/features/ReportsView";
 import { AIExplainerModal } from "@/features/AIExplainerModal";
 import { CompanyAssessmentWizard } from "@/features/CompanyAssessmentWizard";
-import { Target, FileText, Sparkles, Building2, SlidersHorizontal, RotateCcw } from "lucide-react";
+import { Target, FileText, Sparkles, Building2, SlidersHorizontal } from "lucide-react";
 
 export default function AppHome() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
@@ -33,33 +33,8 @@ export default function AppHome() {
   const [customScenarios, setCustomScenarios] = useState<Record<string, Record<string, any>>>({});
   const [isAIModalOpen, setIsAIModalOpen] = useState<boolean>(false);
   
-  // Controls whether the visitor is on the multi-step assessment screen or the main dashboard
-  const [isAssessmentOpen, setIsAssessmentOpen] = useState<boolean>(true);
-  const [isClientLoaded, setIsClientLoaded] = useState<boolean>(false);
-
-  // Load saved company assessment from localStorage on initial render
-  useEffect(() => {
-    try {
-      const savedModel = localStorage.getItem("ventureiq_saved_model");
-      const savedDecision = localStorage.getItem("ventureiq_saved_decision");
-      const completed = localStorage.getItem("ventureiq_assessment_completed");
-
-      if (savedModel) {
-        const parsed = JSON.parse(savedModel);
-        setInputs(parsed);
-      }
-      if (savedDecision) {
-        setDecisionGoalText(savedDecision);
-      }
-      if (completed === "true") {
-        setIsAssessmentOpen(false);
-      }
-    } catch {
-      // Use defaults if parse fails
-    } finally {
-      setIsClientLoaded(true);
-    }
-  }, []);
+  // First-time visitor default: Always display the intake assessment questions first
+  const [viewMode, setViewMode] = useState<"assessment" | "dashboard">("assessment");
 
   // Compute deterministic simulation result for current model inputs
   const simulationResult = useMemo(() => {
@@ -67,24 +42,15 @@ export default function AppHome() {
   }, [inputs]);
 
   const handleCurrencyChange = (newCurrency: CurrencyCode) => {
-    setInputs((prev) => {
-      const updated = { ...prev, currency: newCurrency };
-      localStorage.setItem("ventureiq_saved_model", JSON.stringify(updated));
-      return updated;
-    });
+    setInputs((prev) => ({ ...prev, currency: newCurrency }));
   };
 
   const handleUpdateInputs = (newInputs: ModelEngineInputs) => {
     setInputs(newInputs);
-    localStorage.setItem("ventureiq_saved_model", JSON.stringify(newInputs));
   };
 
   const handleApplyPartialAssumptions = (partial: Partial<ModelEngineInputs>) => {
-    setInputs((prev) => {
-      const updated = { ...prev, ...partial };
-      localStorage.setItem("ventureiq_saved_model", JSON.stringify(updated));
-      return updated;
-    });
+    setInputs((prev) => ({ ...prev, ...partial }));
     setActiveTab("overview");
   };
 
@@ -104,28 +70,21 @@ export default function AppHome() {
     generateExecutivePdfReport(inputs, simulationResult, decisionGoalText);
   };
 
-  // Handles completion of the multi-step intake assessment wizard
+  // Called when user finishes the 5-step intake questionnaire
   const handleAssessmentComplete = (completedInputs: ModelEngineInputs, decisionGoal: string) => {
     setInputs(completedInputs);
     setDecisionGoalText(decisionGoal);
-    try {
-      localStorage.setItem("ventureiq_saved_model", JSON.stringify(completedInputs));
-      localStorage.setItem("ventureiq_saved_decision", decisionGoal);
-      localStorage.setItem("ventureiq_assessment_completed", "true");
-    } catch {
-      // Ignore quota storage errors
-    }
-    setIsAssessmentOpen(false);
+    setViewMode("dashboard");
     setActiveTab("overview");
   };
 
   const handleSkipToDemo = () => {
-    setIsAssessmentOpen(false);
+    setViewMode("dashboard");
     setActiveTab("overview");
   };
 
-  // If user hasn't loaded client yet or is taking assessment, show the multi-step wizard
-  if (isAssessmentOpen && isClientLoaded) {
+  // Screen 1: Mandatory Multi-Step Intake Assessment Screen
+  if (viewMode === "assessment") {
     return (
       <CompanyAssessmentWizard
         initialInputs={inputs}
@@ -136,13 +95,14 @@ export default function AppHome() {
     );
   }
 
+  // Screen 2: Real-Time Dynamic Financial Dashboard
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
       <Navbar
         companyName={inputs.company_name}
         currency={inputs.currency}
         onCurrencyChange={handleCurrencyChange}
-        onOpenIntake={() => setIsAssessmentOpen(true)}
+        onOpenIntake={() => setViewMode("assessment")}
         onOpenAI={() => setIsAIModalOpen(true)}
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
@@ -174,7 +134,7 @@ export default function AppHome() {
                     &quot;{decisionGoalText}&quot;
                   </span>
                   <button
-                    onClick={() => setIsAssessmentOpen(true)}
+                    onClick={() => setViewMode("assessment")}
                     className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline shrink-0"
                     title="Edit strategic decision or company inputs"
                   >
@@ -186,7 +146,7 @@ export default function AppHome() {
 
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => setIsAssessmentOpen(true)}
+                onClick={() => setViewMode("assessment")}
                 className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
                 title="Retake multi-step company assessment"
               >
